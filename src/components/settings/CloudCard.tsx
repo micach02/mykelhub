@@ -6,7 +6,7 @@ import { Badge } from '../ui/Badge'
 import { Field, TextInput } from '../ui/Field'
 import { toast } from '../ui/Toast'
 import { useCloudSync } from '../../lib/cloudSync'
-import { configLooksValid, readConfig, tidyUrl } from '../../lib/cloud'
+import { checkAnonKey, readConfig, tidyUrl, urlLooksValid } from '../../lib/cloud'
 import { useFormat } from '../../lib/useFormat'
 
 /**
@@ -32,7 +32,8 @@ export function CloudCard() {
   const existing = readConfig()
   const [url, setUrl] = useState(existing?.url ?? '')
   const [anonKey, setAnonKey] = useState(existing?.anonKey ?? '')
-  const [configError, setConfigError] = useState('')
+  const [urlError, setUrlError] = useState('')
+  const [keyError, setKeyError] = useState('')
 
   const [emailInput, setEmailInput] = useState('')
   const [password, setPassword] = useState('')
@@ -43,11 +44,13 @@ export function CloudCard() {
 
   async function saveConfig() {
     const next = { url: tidyUrl(url), anonKey: anonKey.trim() }
-    if (!configLooksValid(next)) {
-      setConfigError('That does not look like a Supabase URL and anon key.')
-      return
-    }
-    setConfigError('')
+
+    const urlOk = urlLooksValid(next.url)
+    const key = checkAnonKey(next.anonKey)
+    setUrlError(urlOk ? '' : 'Expected something like https://abcdefgh.supabase.co')
+    setKeyError(key.ok ? '' : key.reason)
+    if (!urlOk || !key.ok) return
+
     setBusy(true)
     await configure(next)
     setBusy(false)
@@ -122,12 +125,14 @@ export function CloudCard() {
         {!configured ? (
           <>
             <p className="text-[13px] leading-relaxed text-ink-2">
-              Create a free project at supabase.com, run the SQL in{' '}
-              <span className="font-medium text-ink">supabase/schema.sql</span>, then paste the
-              project URL and anon key from Project Settings &rarr; API.
+              Create a free project at supabase.com and run the SQL in{' '}
+              <span className="font-medium text-ink">supabase/schema.sql</span>. Then, in the
+              project&rsquo;s Settings, copy the URL from{' '}
+              <span className="font-medium text-ink">Data API</span> and the public key from{' '}
+              <span className="font-medium text-ink">API Keys</span>.
             </p>
             <div className="mt-4 grid grid-cols-1 gap-4">
-              <Field label="Project URL" required error={configError}>
+              <Field label="Project URL" required error={urlError} hint="Settings, Data API.">
                 {(id) => (
                   <TextInput
                     id={id}
@@ -138,16 +143,17 @@ export function CloudCard() {
                 )}
               </Field>
               <Field
-                label="Anon key"
+                label="Public key"
                 required
-                hint="The public key. It is safe to store here: the database policy is what keeps your data private."
+                error={keyError}
+                hint="Settings, API Keys. The publishable or anon key, never a secret one. It is safe here: the database policy is what keeps your data private."
               >
                 {(id) => (
                   <TextInput
                     id={id}
                     value={anonKey}
                     onChange={(e) => setAnonKey(e.target.value)}
-                    placeholder="eyJhbGciOi…"
+                    placeholder="sb_publishable_… or eyJhbGciOi…"
                   />
                 )}
               </Field>

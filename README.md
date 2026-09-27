@@ -308,11 +308,17 @@ free Supabase project under **Settings → Cloud sync**. Setup, once:
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. In the SQL editor, run [supabase/schema.sql](supabase/schema.sql).
-3. Copy the project URL and **anon** key from Project Settings → API into
-   Settings → Cloud sync, and save.
+3. In the project's **Settings**, copy the URL from **Data API** and the
+   public key from **API Keys**, and paste both into Settings → Cloud sync.
+   (Older Supabase dashboards had these together under Settings → API.)
 4. Create your account with **Create the account**, then turn sign-ups off in
    Supabase under Authentication → Providers, so nobody else can register
    against your store.
+
+The API Keys page lists a secret key beside the public one. **Never paste the
+secret key here**: it ignores row-level security, so in a static site it would
+hand every visitor the whole database. The app checks which key was pasted and
+refuses a `service_role` or `sb_secret_` one outright.
 
 The project details are entered in the app rather than built in, so they stay
 out of the repository. `.env.example` shows the build-time alternative.

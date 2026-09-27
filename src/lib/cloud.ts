@@ -51,8 +51,61 @@ export function tidyUrl(url: string): string {
   return url.trim().replace(/\/+$/, '')
 }
 
+export function urlLooksValid(url: string): boolean {
+  return /^https:[/][/][^\s/]+[.]supabase[.]co$/i.test(tidyUrl(url))
+}
+
+/** The role baked into a legacy Supabase JWT key, if it is one. */
+function jwtRole(key: string): string | null {
+  try {
+    const payload = key.split('.')[1]
+    if (!payload) return null
+    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
+    return (JSON.parse(json) as { role?: string }).role ?? null
+  } catch {
+    return null
+  }
+}
+
+export type KeyVerdict = { ok: true } | { ok: false; reason: string }
+
+/**
+ * Which key was pasted. This is a safety check, not a formality: the API Keys
+ * page shows the secret key right beside the public one, and a secret key in
+ * a static site bypasses every row-level policy, so anyone opening the page
+ * could read and delete the lot. Better to refuse it than to store it.
+ */
+export function checkAnonKey(key: string): KeyVerdict {
+  const k = key.trim()
+  if (!k) return { ok: false, reason: 'Paste the key from Settings, API Keys.' }
+
+  if (k.startsWith('sb_secret_')) {
+    return {
+      ok: false,
+      reason:
+        'That is the secret key. It would give anyone who opens this app full access to your database. Use the publishable key instead.',
+    }
+  }
+  if (k.startsWith('sb_publishable_')) return { ok: true }
+
+  if (k.startsWith('eyJ')) {
+    const role = jwtRole(k)
+    if (role === 'service_role') {
+      return {
+        ok: false,
+        reason:
+          'That is the service_role key. It ignores the security policy, so anyone opening this app could read every customer. Use the anon public key instead.',
+      }
+    }
+    if (role === 'anon') return { ok: true }
+    return { ok: false, reason: 'That key is not the anon public key.' }
+  }
+
+  return { ok: false, reason: 'That does not look like a Supabase key.' }
+}
+
 export function configLooksValid(config: CloudConfig): boolean {
-  return /^https:\/\/[^\s/]+\.supabase\.co$/i.test(tidyUrl(config.url)) && config.anonKey.length > 40
+  return urlLooksValid(config.url) && checkAnonKey(config.anonKey).ok
 }
 
 let client: SupabaseClient | null = null
