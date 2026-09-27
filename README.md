@@ -207,6 +207,11 @@ grouped by category with dotted leaders to the price, two columns, flowing onto
 further pages as needed. Cost price is deliberately absent — this one gets
 handed across the counter.
 
+It prints on **long bond** (8.5 × 13in, 216 × 330mm), not A4 — the taller sheet
+fits noticeably more products per page, and it is what the shop has in the
+printer. Note this is the Philippine long/folio size, not US Legal (8.5 × 14in),
+which would leave a blank strip at the foot. Receipts and statements stay on A4.
+
 ### Statement of account
 
 The ledger's **Download PDF** produces a statement on A4. It lists **only what

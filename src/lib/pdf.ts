@@ -8,13 +8,19 @@ import type { Customer, Payment } from '../types'
  * the file stays small. jsPDF is pulled in on demand: it is far bigger than
  * anything else here and most sessions never download a document.
  */
-async function newDocument() {
+async function newDocument(format: 'a4' | [number, number] = 'a4') {
   const { jsPDF } = await import('jspdf')
-  return new jsPDF({ unit: 'mm', format: 'a4', compress: true })
+  return new jsPDF({ unit: 'mm', format, compress: true })
 }
 
 const A4_WIDTH = 210
 const A4_HEIGHT = 297
+
+/**
+ * Philippine long bond, 8.5 by 13 inches. Not US Legal, which is 8.5 by 14
+ * and will leave a blank strip at the foot of a page printed on long.
+ */
+const LONG_BOND: [number, number] = [215.9, 330.2]
 
 /** Peso and other signs are not in the built-in PDF fonts; spell the code. */
 function plainMoney(value: number, currency: string, locale: string): string {
@@ -466,14 +472,16 @@ function stampPageNumbers(
   label: string | string[],
 ): void {
   const total = doc.getNumberOfPages()
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
   for (let page = 1; page <= total; page++) {
     doc.setPage(page)
     const who = Array.isArray(label) ? (label[page] ?? '') : label
     doc.setFont('helvetica', 'normal').setFontSize(8).setTextColor(130)
     doc.text(
       who ? `${who} — page ${page} of ${total}` : `Page ${page} of ${total}`,
-      A4_WIDTH / 2,
-      A4_HEIGHT - 10,
+      pageWidth / 2,
+      pageHeight - 10,
       { align: 'center' },
     )
   }
@@ -567,19 +575,22 @@ export async function buildPriceListPdf(opts: {
   meta: DocumentMeta
 }): Promise<{ doc: Awaited<ReturnType<typeof newDocument>>; filename: string }> {
   const { items, meta } = opts
-  const doc = await newDocument()
+  // Long bond: the extra height is worth about a fifth more products per page,
+  // and it is what a sari-sari store has in the printer.
+  const doc = await newDocument(LONG_BOND)
   const money = (v: number) => plainMoney(v, meta.currency, meta.locale)
 
+  const [PAGE_W, PAGE_H] = LONG_BOND
   const M = 14
   const COLUMN_GAP = 10
-  const columnWidth = (A4_WIDTH - M * 2 - COLUMN_GAP) / 2
+  const columnWidth = (PAGE_W - M * 2 - COLUMN_GAP) / 2
   const TOP = 34
-  const BOTTOM = A4_HEIGHT - 18
+  const BOTTOM = PAGE_H - 18
 
   doc.setFont('helvetica', 'bold').setFontSize(18).setTextColor(0)
-  doc.text(meta.storeName, A4_WIDTH / 2, 20, { align: 'center' })
+  doc.text(meta.storeName, PAGE_W / 2, 20, { align: 'center' })
   doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(90)
-  doc.text('PRICE LIST', A4_WIDTH / 2, 25.5, { align: 'center' })
+  doc.text('PRICE LIST', PAGE_W / 2, 25.5, { align: 'center' })
   doc.setFontSize(8).setTextColor(130)
   doc.text(
     `As of ${new Date().toLocaleDateString(meta.locale, {
@@ -587,7 +598,7 @@ export async function buildPriceListPdf(opts: {
       month: 'long',
       year: 'numeric',
     })}`,
-    A4_WIDTH / 2,
+    PAGE_W / 2,
     30,
     { align: 'center' },
   )
@@ -666,7 +677,7 @@ export async function buildPriceListPdf(opts: {
 
   if (items.length === 0) {
     doc.setFont('helvetica', 'normal').setFontSize(11).setTextColor(60)
-    doc.text('No products to list yet.', A4_WIDTH / 2, 50, { align: 'center' })
+    doc.text('No products to list yet.', PAGE_W / 2, 50, { align: 'center' })
   }
 
   stampPageNumbers(doc, `${meta.storeName} price list`)
