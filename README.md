@@ -315,9 +315,17 @@ free Supabase project under **Settings → Cloud sync**. Setup, once:
 3. In the project's **Settings**, copy the URL from **Data API** and the
    public key from **API Keys**, and paste both into Settings → Cloud sync.
    (Older Supabase dashboards had these together under Settings → API.)
-4. Create your account with **Create the account**, then turn sign-ups off in
-   Supabase under Authentication → Providers, so nobody else can register
-   against your store.
+4. Create the single account. The least fiddly way is in Supabase under
+   **Authentication → Users → Add user**, ticking **Auto Confirm User** —
+   that skips the confirmation email entirely. Then sign in from the app.
+
+   Signing up from the app works too, but a fresh project sends a
+   confirmation email whose link points at `http://localhost:3000`, because
+   that is the default Site URL. Either confirm the account from the
+   dashboard instead, or set **Authentication → URL Configuration → Site
+   URL** to the address the app is served from.
+5. Turn sign-ups off in Supabase under **Authentication → Sign In / Providers**,
+   so nobody else can register against your store.
 
 The API Keys page lists a secret key beside the public one. **Never paste the
 secret key here**: it ignores row-level security, so in a static site it would

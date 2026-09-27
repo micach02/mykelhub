@@ -48,6 +48,35 @@ let applying = false
 
 const SYNCED_AT_KEY = 'mykelhub.cloud.syncedAt'
 
+/**
+ * Supabase's auth errors are short and assume you know your way around the
+ * dashboard. Say what to actually do, since the fix is usually a setting
+ * rather than anything the person typed.
+ */
+function explainAuthError(message: string): string {
+  const m = message.toLowerCase()
+
+  if (m.includes('not confirmed')) {
+    return 'This account still needs confirming. The quickest fix is in Supabase: Authentication, Users, open the account and confirm it there. Or turn confirmation off under Authentication, Sign In / Providers, Email.'
+  }
+  if (m.includes('invalid login credentials')) {
+    return 'That email and password did not match. If this is the first time, use Create the account instead.'
+  }
+  if (m.includes('already registered') || m.includes('already been registered')) {
+    return 'That account already exists, so use Sign in rather than Create the account.'
+  }
+  if (m.includes('password') && m.includes('6')) {
+    return 'The password needs to be at least six characters.'
+  }
+  if (m.includes('signups not allowed') || m.includes('signup is disabled')) {
+    return 'Sign-ups are turned off for this project. Create the account in Supabase under Authentication, Users, then sign in here.'
+  }
+  if (m.includes('failed to fetch') || m.includes('networkerror')) {
+    return 'Could not reach the project. Check the connection, and that the project URL is right.'
+  }
+  return message
+}
+
 function readSyncedAt(): string | null {
   try {
     return localStorage.getItem(SYNCED_AT_KEY)
@@ -105,7 +134,10 @@ export const useCloudSync = create<CloudSyncState>((set, get) => ({
     set({ state: 'syncing', message: null })
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error || !data.user) {
-      set({ state: 'signed-out', message: error?.message ?? 'Could not sign in.' })
+      set({
+        state: 'signed-out',
+        message: error ? explainAuthError(error.message) : 'Could not sign in.',
+      })
       return false
     }
     ownerId = data.user.id
@@ -120,14 +152,15 @@ export const useCloudSync = create<CloudSyncState>((set, get) => ({
     set({ state: 'syncing', message: null })
     const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) {
-      set({ state: 'signed-out', message: error.message })
+      set({ state: 'signed-out', message: explainAuthError(error.message) })
       return false
     }
     // Projects with email confirmation on return no session until confirmed.
     if (!data.session) {
       set({
         state: 'signed-out',
-        message: 'Account created. Check your email to confirm it, then sign in.',
+        message:
+          'Account created, but the project wants it confirmed by email first. Confirming from the dashboard is easier: Supabase, Authentication, Users, open the account and confirm it. Then sign in here.',
       })
       return false
     }
