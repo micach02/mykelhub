@@ -307,7 +307,11 @@ To use MykelHub on a phone and a computer with the same data, connect it to a
 free Supabase project under **Settings → Cloud sync**. Setup, once:
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. In the SQL editor, run [supabase/schema.sql](supabase/schema.sql).
+2. In the SQL editor, run [supabase/schema.sql](supabase/schema.sql). A
+   successful run reports "Success. No rows returned" — it only creates
+   things, so there is nothing to show. To see the result, run
+   [supabase/verify.sql](supabase/verify.sql), which should report "yes"
+   on every row.
 3. In the project's **Settings**, copy the URL from **Data API** and the
    public key from **API Keys**, and paste both into Settings → Cloud sync.
    (Older Supabase dashboards had these together under Settings → API.)
