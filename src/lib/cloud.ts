@@ -46,9 +46,19 @@ export function writeConfig(config: CloudConfig | null): void {
   }
 }
 
-/** Catches a pasted dashboard URL or a stray slash before it becomes a 404. */
+/**
+ * The project URL the client wants, from whatever was pasted.
+ *
+ * The dashboard's Data API page shows the REST endpoint, ending /rest/v1/,
+ * and the client appends that path itself. Pasting what is on screen is the
+ * obvious thing to do, so trim it here rather than rejecting it.
+ */
 export function tidyUrl(url: string): string {
-  return url.trim().replace(/\/+$/, '')
+  return url
+    .trim()
+    .replace(/[/]+$/, '')
+    .replace(/[/](?:rest|auth|storage|realtime|functions)[/]v[0-9]+$/i, '')
+    .replace(/[/]+$/, '')
 }
 
 export function urlLooksValid(url: string): boolean {

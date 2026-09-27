@@ -132,7 +132,7 @@ export function CloudCard() {
               <span className="font-medium text-ink">API Keys</span>.
             </p>
             <div className="mt-4 grid grid-cols-1 gap-4">
-              <Field label="Project URL" required error={urlError} hint="Settings, Data API.">
+              <Field label="Project URL" required error={urlError} hint="Settings, Data API. Pasting the full REST endpoint is fine, the extra path is trimmed.">
                 {(id) => (
                   <TextInput
                     id={id}
