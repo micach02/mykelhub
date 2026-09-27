@@ -267,6 +267,8 @@ export interface AppliedTo {
   kind: ChargeKind
   at: string
   description: string
+  /** The goods themselves, so a receipt can list them rather than run them together. */
+  items: Array<{ qty: number; name: string }>
   chargeAmount: number
   /** How much of this payment went to this charge. */
   applied: number
@@ -307,6 +309,10 @@ export function paymentAllocation(
           kind: charges[i].kind,
           at: charges[i].at,
           description: charges[i].label,
+          items: (charges[i].sale?.items ?? []).map((line) => ({
+            qty: line.qty,
+            name: line.name,
+          })),
           chargeAmount: charges[i].amount,
           applied: take,
           cleared: remaining[i] <= 0.001,

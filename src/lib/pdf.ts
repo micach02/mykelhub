@@ -45,6 +45,27 @@ export interface DocumentMeta {
 /**
  * A 76mm slip centred on the page, so it can be cut out or handed over as is.
  */
+interface SettledGroup {
+  kind: AppliedTo['kind']
+  label: string
+  rows: AppliedTo[]
+  total: number
+}
+
+/** Parking months and goods, each together, so the slip reads in sections. */
+function groupSettled(settled: AppliedTo[]): SettledGroup[] {
+  const order: Array<{ kind: AppliedTo['kind']; label: string }> = [
+    { kind: 'parking', label: 'Parking' },
+    { kind: 'goods', label: 'Goods' },
+  ]
+  return order
+    .map(({ kind, label }) => {
+      const rows = settled.filter((row) => row.kind === kind)
+      return { kind, label, rows, total: rows.reduce((t, r) => t + r.applied, 0) }
+    })
+    .filter((group) => group.rows.length > 0)
+}
+
 export interface ReceiptInput {
   payment: Payment
   customer: Customer
@@ -70,18 +91,44 @@ export async function buildReceiptPdf(opts: ReceiptInput) {
     amountInWords(payment.amount, meta.currency),
     W - 4,
   ) as string[]
+  const dateShort = (iso: string) =>
+    new Date(iso).toLocaleDateString(meta.locale, { day: 'numeric', month: 'short' })
+
+  const groups = groupSettled(settled)
+  const showGroups = groups.length > 1
+
   const rows: Array<[string, string]> = [
     ['Received from', customer.name],
     ['Paid with', paymentMethodLabel(payment.method)],
   ]
   if (payment.note) rows.push(['For', payment.note])
 
-  // Each settled charge takes a line, plus its heading and the rule above it.
-  const settledHeight = settled.length > 0 ? 6 + 4 + settled.length * 4.5 : 0
+  // Measured the same way it is drawn, so the slip stays centred: a heading
+  // per group, a line per charge, a line per item, and a note where part paid.
+  const settledHeight =
+    settled.length > 0
+      ? 6 +
+        4 +
+        (showGroups ? groups.length * 4 : 0) +
+        settled.reduce(
+          (t, row) => t + 4 + row.items.length * 3.4 + (row.cleared ? 0 : 3.4) + 1,
+          0,
+        )
+      : 0
   const height =
     8 + 5 + 6 + 11 + wordsLines.length * 4 + 6 + rows.length * 5 + settledHeight +
     8 + 3 * 5 + 4 + 12
   let y = Math.max(16, (A4_HEIGHT - height) / 2)
+
+  /**
+   * A long settlement can outrun the page. Carry on overleaf rather than
+   * drawing past the bottom, where the text is simply lost.
+   */
+  const needRoom = (height: number) => {
+    if (y + height <= A4_HEIGHT - 14) return
+    doc.addPage()
+    y = 20
+  }
 
   const dashed = (atY: number) => {
     doc.setDrawColor(120)
@@ -142,24 +189,48 @@ export async function buildReceiptPdf(opts: ReceiptInput) {
     doc.text('THIS PAYMENT SETTLED', left, y)
     y += 4.5
 
-    doc.setFont('helvetica', 'normal').setFontSize(8).setTextColor(40)
-    for (const item of settled) {
-      const tail = item.cleared ? '' : ' (part)'
-      const label = `${new Date(item.at).toLocaleDateString(meta.locale, {
-        day: 'numeric',
-        month: 'short',
-      })}  ${item.description}`
-      // Keep the description clear of the amount on the right.
-      const trimmed = doc.splitTextToSize(label, W - 26)[0] as string
-      doc.setTextColor(60)
-      doc.text(trimmed, left, y)
-      doc.setTextColor(0)
-      doc.text(money(item.applied) + tail, right, y, { align: 'right' })
-      y += 4.5
+    for (const group of groupSettled(settled)) {
+      if (showGroups) {
+        doc.setFont('helvetica', 'bold').setFontSize(7.5).setTextColor(110)
+        doc.text(group.label.toUpperCase(), left, y)
+        doc.text(money(group.total), right, y, { align: 'right' })
+        y += 4
+      }
+
+      for (const row of group.rows) {
+        // Keep a charge and its items together where they fit.
+        needRoom(4 + row.items.length * 3.4 + (row.cleared ? 0 : 3.4))
+        doc.setFont('helvetica', 'normal').setFontSize(8).setTextColor(40)
+        const heading = row.kind === 'parking' ? row.description : dateShort(row.at)
+        doc.text(heading, left, y, { maxWidth: W - 26 })
+        doc.setTextColor(0)
+        doc.text(money(row.applied), right, y, { align: 'right' })
+        y += 4
+
+        // Every item, wrapped. The old version kept only the first wrapped
+        // line, so anything past it silently vanished from the receipt.
+        doc.setFontSize(7.5).setTextColor(90)
+        for (const line of row.items) {
+          const wrapped = doc.splitTextToSize(`${line.qty} x ${line.name}`, W - 8) as string[]
+          for (const part of wrapped) {
+            needRoom(3.4)
+            doc.text(part, left + 3, y)
+            y += 3.4
+          }
+        }
+
+        if (!row.cleared) {
+          doc.setFontSize(7).setTextColor(120)
+          doc.text(`part of ${money(row.chargeAmount)}`, left + 3, y)
+          y += 3.4
+        }
+        y += 1
+      }
     }
   }
 
   y += 2
+  needRoom(34)
   dashed(y)
   y += 5
 

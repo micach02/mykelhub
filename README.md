@@ -188,7 +188,9 @@ Recording a payment offers a receipt straight away, and the receipt icon on any
 payment row in the ledger fetches an old one. It is a 76mm slip **centred on an
 A4 page**, so it can be cut out or handed over whole.
 
-It itemises **what the payment settled** — since money clears the oldest charge
+It itemises **what the payment settled**, grouped into Parking and Goods
+with a subtotal each, and every product listed on its own line rather than
+run together — since money clears the oldest charge
 first, the slip can say which months of parking and which goods it went to,
 marking the last one "(part)" where it ran out — alongside the amount in
 figures and words, who paid, how, the balance before and after, and when the

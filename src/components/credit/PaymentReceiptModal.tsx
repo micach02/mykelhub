@@ -46,6 +46,23 @@ export function PaymentReceiptModal({
     [customer, payment, sales, payments],
   )
 
+  /** Parking months and goods, each together, so the slip reads in sections. */
+  const groups = useMemo(() => {
+    const order = [
+      { kind: 'parking' as const, label: 'Parking' },
+      { kind: 'goods' as const, label: 'Goods' },
+    ]
+    return order
+      .map(({ kind, label }) => {
+        const rows = settled.filter((row) => row.kind === kind)
+        return { kind, label, rows, total: rows.reduce((t, r) => t + r.applied, 0) }
+      })
+      .filter((group) => group.rows.length > 0)
+  }, [settled])
+
+  // With only one kind on the slip, a heading over it says nothing.
+  const showGroupHeadings = groups.length > 1
+
   const balances = useMemo(() => {
     if (!customer || !payment) return { before: 0, after: 0 }
     const entry = buildLedger(customer, sales, payments).find((e) => e.id === payment.id)
@@ -132,25 +149,49 @@ export function PaymentReceiptModal({
             <p className="text-[11px] font-semibold tracking-wide text-ink-2 uppercase">
               This payment settled
             </p>
-            <ul className="mt-1.5 flex flex-col gap-1">
-              {settled.map((item) => (
-                <li
-                  key={item.chargeId}
-                  className="flex items-start justify-between gap-3 text-[12px]"
-                >
-                  <span className="min-w-0 text-ink-2">
-                    <span className="text-muted">{fmt.date(item.at)}</span>{' '}
-                    <span className="text-ink">{item.description}</span>
-                    {!item.cleared ? (
-                      <span className="text-muted"> (part of {fmt.money(item.chargeAmount)})</span>
-                    ) : null}
-                  </span>
-                  <span className="tnum shrink-0 font-medium text-ink">
-                    {fmt.money(item.applied)}
-                  </span>
-                </li>
-              ))}
-            </ul>
+
+            {groups.map((group) => (
+              <div key={group.kind} className="mt-2.5">
+                {showGroupHeadings ? (
+                  <p className="flex items-baseline justify-between gap-3 border-b border-line pb-1 text-[11px] font-semibold tracking-wide text-muted uppercase">
+                    {group.label}
+                    <span className="tnum font-medium text-ink-2">{fmt.money(group.total)}</span>
+                  </p>
+                ) : null}
+
+                <ul className="mt-1.5 flex flex-col gap-1.5">
+                  {group.rows.map((row) => (
+                    <li key={row.chargeId} className="text-[12px]">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="min-w-0 truncate text-ink">
+                          {row.kind === 'parking' ? row.description : fmt.date(row.at)}
+                        </span>
+                        <span className="tnum shrink-0 font-medium text-ink">
+                          {fmt.money(row.applied)}
+                        </span>
+                      </div>
+
+                      {row.items.length > 0 ? (
+                        <ul className="mt-0.5 flex flex-col gap-0.5 pl-3">
+                          {row.items.map((line, i) => (
+                            <li key={i} className="flex gap-1.5 text-[11.5px] text-ink-2">
+                              <span className="tnum shrink-0 text-muted">{line.qty}&times;</span>
+                              <span className="min-w-0">{line.name}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+
+                      {!row.cleared ? (
+                        <p className="mt-0.5 text-[11px] text-muted">
+                          Part of {fmt.money(row.chargeAmount)}, the rest is still owed.
+                        </p>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
         ) : null}
 
