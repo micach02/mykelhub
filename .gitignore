@@ -31,3 +31,8 @@ data/
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+
+# Local environment, including any baked-in Supabase project details
+.env
+.env.*
+!.env.example

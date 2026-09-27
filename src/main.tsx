@@ -2,10 +2,13 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import { initFileSync } from './lib/fileSync'
+import { initCloudSync } from './lib/cloudSync'
 import './index.css'
 
-// Reconnects to the data file, if one was chosen, before anything renders.
+// Reconnect to wherever the data lives before anything renders. Both are
+// optional: without either, the store stays in browser storage.
 void initFileSync()
+void initCloudSync()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

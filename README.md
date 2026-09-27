@@ -301,6 +301,47 @@ A file is only loaded if it actually looks like a MykelHub file; a truncated or
 unrelated JSON document is refused rather than applied over good data. Settings
 missing from a file written by an older build fall back to their defaults.
 
+## Cloud sync
+
+To use MykelHub on a phone and a computer with the same data, connect it to a
+free Supabase project under **Settings → Cloud sync**. Setup, once:
+
+1. Create a project at [supabase.com](https://supabase.com).
+2. In the SQL editor, run [supabase/schema.sql](supabase/schema.sql).
+3. Copy the project URL and **anon** key from Project Settings → API into
+   Settings → Cloud sync, and save.
+4. Create your account with **Create the account**, then turn sign-ups off in
+   Supabase under Authentication → Providers, so nobody else can register
+   against your store.
+
+The project details are entered in the app rather than built in, so they stay
+out of the repository. `.env.example` shows the build-time alternative.
+
+**The anon key is public.** A static site cannot hide it, and it is not meant
+to be hidden. What keeps the data private is the row-level security policy in
+the schema: every row belongs to one account, and the database refuses to hand
+rows to anybody else. Without that policy the key alone would expose every
+customer's debts — which is why the schema is not optional.
+
+### How the syncing works
+
+The store is held in memory as always, so the interface stays instant; the
+cloud is a persistence layer underneath, the same shape as the data file.
+
+Data is stored as **seven rows, one per collection**, rather than one large
+document. That matters more than it sounds: the demo store is 505KB of JSON,
+but editing a product only uploads the 6.7KB `products` row. Only collections
+whose contents actually changed are sent, and sends are debounced.
+
+Edits made offline are kept on the device and go up when the connection
+returns.
+
+**Conflicts are not resolved silently.** If this device has changes that never
+went up *and* the cloud has newer data from elsewhere, the app stops and asks
+which to keep, because either choice loses something real. Otherwise the last
+save wins — fine for one person on two devices, not a substitute for
+record-level merging if two people work at once.
+
 ## Deploying to GitHub Pages
 
 `.github/workflows/deploy.yml` builds and publishes `dist/` on every push to

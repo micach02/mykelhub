@@ -10,6 +10,7 @@ import { toast } from '../components/ui/Toast'
 import { useStore } from '../store/useStore'
 import { normalisePaymentMethod } from '../lib/labels'
 import { DataFileCard } from '../components/settings/DataFileCard'
+import { CloudCard } from '../components/settings/CloudCard'
 import type { ThemePreference } from '../types'
 
 const CURRENCIES = ['PHP', 'USD', 'SGD', 'AED', 'HKD']
@@ -242,6 +243,8 @@ export function Settings() {
           </CardBody>
         </Card>
       </div>
+
+      <CloudCard />
 
       <DataFileCard />
 
