@@ -80,6 +80,7 @@ export const useCloudSync = create<CloudSyncState>((set, get) => ({
   message: null,
 
   configure: async (config) => {
+    watchStore()
     writeConfig(config)
     resetClient()
     ownerId = null
@@ -246,14 +247,17 @@ async function restoreSession(set: Setter): Promise<void> {
   await useCloudSync.getState().syncNow()
 }
 
+let watching = false
+
 /**
- * Reconnects to the cloud, if one is configured, and keeps it in step.
- * Pushes are debounced and only carry the collections that actually changed,
- * so renaming a product does not re-upload the sales history.
+ * Watch the store for edits. Installed regardless of whether a project is
+ * configured yet: the usual path is to configure it from Settings *after*
+ * the page has loaded, and if the watcher only went on at start-up then
+ * every edit made in that session would quietly never be uploaded.
  */
-export async function initCloudSync(): Promise<void> {
-  if (!readConfig()) return
-  await restoreSession((p) => useCloudSync.setState(p))
+function watchStore(): void {
+  if (watching) return
+  watching = true
 
   useStore.subscribe((state, prev) => {
     if (applying) return
@@ -262,11 +266,12 @@ export async function initCloudSync(): Promise<void> {
     }
     if (dirty.size === 0) return
 
-    const status = useCloudSync.getState()
     useCloudSync.setState({ pendingCount: dirty.size })
-    if (status.state === 'conflict' || status.state === 'signed-out' || status.state === 'off') {
-      return
-    }
+
+    // Still kept, just not sent yet: they go up on sign-in, or once the
+    // conflict is settled.
+    const { state: status } = useCloudSync.getState()
+    if (status === 'conflict' || status === 'signed-out' || status === 'off') return
 
     if (timer) clearTimeout(timer)
     timer = setTimeout(() => {
@@ -280,4 +285,15 @@ export async function initCloudSync(): Promise<void> {
       if (dirty.size > 0) void useCloudSync.getState().syncNow()
     })
   }
+}
+
+/**
+ * Reconnects to the cloud, if one is configured, and keeps it in step.
+ * Pushes are debounced and only carry the collections that actually changed,
+ * so renaming a product does not re-upload the sales history.
+ */
+export async function initCloudSync(): Promise<void> {
+  watchStore()
+  if (!readConfig()) return
+  await restoreSession((p) => useCloudSync.setState(p))
 }
