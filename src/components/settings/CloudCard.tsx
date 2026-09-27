@@ -81,8 +81,10 @@ export function CloudCard() {
             <Badge tone="critical" icon={<AlertTriangle size={12} aria-hidden />}>
               Problem
             </Badge>
+          ) : state === 'signed-out' ? (
+            <Badge tone="brand">Sign in to start</Badge>
           ) : (
-            <Badge tone="neutral">Not connected</Badge>
+            <Badge tone="neutral">No project yet</Badge>
           )
         }
       />
@@ -167,6 +169,16 @@ export function CloudCard() {
           </>
         ) : !signedIn ? (
           <>
+            <div className="mb-4 rounded-lg border border-line bg-surface-2 px-4 py-3">
+              <p className="text-[12px] text-ink-2">Project saved</p>
+              <p className="text-[13px] font-medium break-all text-ink">
+                {readConfig()?.url ?? ''}
+              </p>
+              <p className="mt-1 text-[12px] text-ink-2">
+                Now sign in, or create the account if this is the first time.
+              </p>
+            </div>
+
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Email">
                 {(id) => (
