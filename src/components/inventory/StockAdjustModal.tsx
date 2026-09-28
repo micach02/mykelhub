@@ -51,7 +51,7 @@ export function StockAdjustModal({
     mode === 'restock'
       ? product.stock + amount
       : mode === 'remove'
-        ? Math.max(0, product.stock - amount)
+        ? Math.max(Math.min(0, product.stock), product.stock - amount)
         : amount
 
   const valid = qty !== '' && (mode === 'count' ? amount !== product.stock : amount > 0)

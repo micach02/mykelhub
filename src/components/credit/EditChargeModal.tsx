@@ -47,15 +47,10 @@ export function EditChargeModal({ sale, onClose }: { sale: Sale | null; onClose:
   const total = lines.reduce((sum, l) => sum + l.qty * l.unitPrice, 0)
   const difference = total - sale.total
 
-  /** Stock free to take, counting back what this sale already holds. */
-  function availableFor(productId: ID): number {
-    const product = products.find((p) => p.id === productId)
-    const heldByThisSale = sale?.items.find((i) => i.productId === productId)?.qty ?? 0
-    return (product?.stock ?? 0) + heldByThisSale
-  }
-
+  // Like adding a credit sale, a charge is not held to the shelf count: stock
+  // can go below zero until the next restock or count.
   function setQty(productId: ID, qty: number) {
-    const capped = Math.min(Math.max(1, qty), availableFor(productId))
+    const capped = Math.max(1, qty)
     setLines((cur) => cur.map((l) => (l.productId === productId ? { ...l, qty: capped } : l)))
   }
 
@@ -66,15 +61,7 @@ export function EditChargeModal({ sale, onClose }: { sale: Sale | null; onClose:
     setLines((cur) => {
       const existing = cur.find((l) => l.productId === productId)
       if (existing) {
-        if (existing.qty >= availableFor(productId)) {
-          toast.error('No more ' + product.name + ' in stock.')
-          return cur
-        }
         return cur.map((l) => (l.productId === productId ? { ...l, qty: l.qty + 1 } : l))
-      }
-      if (availableFor(productId) < 1) {
-        toast.error(product.name + ' is out of stock.')
-        return cur
       }
       return [
         ...cur,
@@ -150,7 +137,6 @@ export function EditChargeModal({ sale, onClose }: { sale: Sale | null; onClose:
                 </span>
                 <button
                   onClick={() => setQty(line.productId, line.qty + 1)}
-                  disabled={line.qty >= availableFor(line.productId)}
                   aria-label={'More ' + line.name}
                   className="grid size-6 place-items-center rounded border border-line text-ink-2 hover:bg-surface-2 disabled:opacity-40"
                 >

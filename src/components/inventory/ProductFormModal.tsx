@@ -92,7 +92,9 @@ export function ProductFormModal({
     if (!form.category.trim()) next.category = 'Pick or type a category.'
     if (price <= 0) next.price = 'A selling price is required.'
     if (cost < 0) next.cost = 'Cannot be negative.'
-    if (Number(form.stock) < 0) next.stock = 'Cannot be negative.'
+    // Only opening stock is typed in. An existing product's count can sit
+    // below zero after a credit sale, and this form does not change it.
+    if (!product && Number(form.stock) < 0) next.stock = 'Cannot be negative.'
 
     setErrors(next)
     return Object.keys(next).length === 0

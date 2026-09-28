@@ -84,17 +84,23 @@ export function RecordSaleModal({
   const account = customer ? accounts.get(customer.id) : undefined
   const projected = (account?.balance ?? 0) + total
 
+  // Goods on credit can go out before the shelf count says they exist. Stock
+  // drops below zero and the next restock or count settles it.
+  const onCredit = settlement === 'credit'
+  const stockOf = (productId: ID) => products.find((p) => p.id === productId)?.stock ?? 0
+  const overStock = lines.find((l) => l.qty > stockOf(l.productId))
+
   function addLine(productId: ID) {
     const product = products.find((p) => p.id === productId)
     if (!product) return
-    if (product.stock <= 0) {
+    if (!onCredit && product.stock <= 0) {
       toast.error(`${product.name} is out of stock.`)
       return
     }
     setLines((current) => {
       const existing = current.find((l) => l.productId === productId)
       if (existing) {
-        if (existing.qty >= product.stock) {
+        if (!onCredit && existing.qty >= product.stock) {
           toast.error(`Only ${product.stock} ${product.unit} of ${product.name} left.`)
           return current
         }
@@ -114,8 +120,7 @@ export function RecordSaleModal({
   }
 
   function setQty(productId: ID, qty: number) {
-    const product = products.find((p) => p.id === productId)
-    const capped = Math.min(Math.max(1, qty), product?.stock ?? qty)
+    const capped = onCredit ? Math.max(1, qty) : Math.max(1, Math.min(qty, stockOf(productId)))
     setLines((current) =>
       current.map((l) => (l.productId === productId ? { ...l, qty: capped } : l)),
     )
@@ -131,6 +136,15 @@ export function RecordSaleModal({
     if (!hasLines) return
     if (settlement === 'credit' && !customerId) {
       toast.error('Pick which customer this goes to.')
+      return
+    }
+    if (!onCredit && overStock) {
+      const left = Math.max(0, stockOf(overStock.productId))
+      toast.error(
+        left === 0
+          ? `${overStock.name} is out of stock. Put it on credit, or take it off.`
+          : `Only ${left} of ${overStock.name} left. Put it on credit, or take fewer.`,
+      )
       return
     }
     const sale = recordSale({
@@ -193,21 +207,27 @@ export function RecordSaleModal({
             <div className="mt-2 flex max-h-44 flex-wrap content-start gap-1.5 overflow-y-auto">
               {matches.map((p) => {
                 const taken = lines.find((l) => l.productId === p.id)?.qty ?? 0
+                const out = p.stock <= 0
                 return (
                   <button
                     key={p.id}
                     onClick={() => addLine(p.id)}
-                    disabled={p.stock <= 0}
+                    disabled={out && !onCredit}
                     className={cn(
                       'flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12.5px] transition-colors',
                       taken > 0
                         ? 'border-brand bg-brand-soft text-brand'
                         : 'border-line text-ink-2 hover:border-brand hover:text-ink',
-                      p.stock <= 0 && 'cursor-not-allowed opacity-45 hover:border-line',
+                      out && !onCredit && 'cursor-not-allowed opacity-45 hover:border-line',
                     )}
                   >
                     <span className="font-medium">{p.name}</span>
                     <span className="tnum text-muted">{fmt.money(p.price)}</span>
+                    {out && onCredit ? (
+                      <span className="text-[10.5px] font-medium text-critical">
+                        Out
+                      </span>
+                    ) : null}
                     {taken > 0 ? (
                       <span className="tnum rounded bg-brand px-1 text-[10.5px] font-bold text-white">
                         {taken}
@@ -226,15 +246,25 @@ export function RecordSaleModal({
         {lines.length > 0 ? (
           <ul className="divide-y divide-line rounded-lg border border-line">
             {lines.map((line) => {
-              const product = products.find((p) => p.id === line.productId)
+              const stock = stockOf(line.productId)
               return (
                 <li key={line.productId} className="flex items-center gap-2 px-3 py-2">
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[13px] font-medium text-ink">
                       {line.name}
                     </span>
-                    <span className="tnum text-[11.5px] text-muted">
-                      {fmt.money(line.unitPrice)} each, {product?.stock ?? 0} left
+                    <span
+                      className={cn(
+                        'tnum text-[11.5px]',
+                        line.qty > stock ? 'text-critical' : 'text-muted',
+                      )}
+                    >
+                      {fmt.money(line.unitPrice)} each,{' '}
+                      {stock <= 0
+                        ? 'out of stock'
+                        : line.qty > stock
+                          ? `only ${stock} left`
+                          : `${stock} left`}
                     </span>
                   </span>
                   <span className="flex items-center gap-1">
@@ -251,7 +281,7 @@ export function RecordSaleModal({
                     </span>
                     <button
                       onClick={() => setQty(line.productId, line.qty + 1)}
-                      disabled={line.qty >= (product?.stock ?? 0)}
+                      disabled={!onCredit && line.qty >= stock}
                       aria-label={`More ${line.name}`}
                       className="grid size-6 place-items-center rounded border border-line text-ink-2 hover:bg-surface-2 disabled:opacity-40"
                     >

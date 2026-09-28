@@ -206,8 +206,10 @@ export const useStore = create<StoreState>()(
       adjustStock: (id, delta, reason) => {
         if (delta === 0) return
         set((s) => ({
+          // Never takes stock below zero, and never lifts a count that a
+          // credit sale already took below zero.
           products: s.products.map((p) =>
-            p.id === id ? { ...p, stock: Math.max(0, p.stock + delta) } : p,
+            p.id === id ? { ...p, stock: Math.max(Math.min(0, p.stock), p.stock + delta) } : p,
           ),
           movements: [
             {
@@ -262,9 +264,11 @@ export const useStore = create<StoreState>()(
 
         set((s) => ({
           sales: [sale, ...s.sales],
+          // Not floored at zero: a credit sale may take goods the count says
+          // are gone, and voiding it has to put back exactly what it took.
           products: s.products.map((p) => {
             const line = items.find((i) => i.productId === p.id)
-            return line ? { ...p, stock: Math.max(0, p.stock - line.qty) } : p
+            return line ? { ...p, stock: p.stock - line.qty } : p
           }),
           movements: [
             ...items.map<StockMovement>((line) => ({
@@ -386,7 +390,7 @@ export const useStore = create<StoreState>()(
             .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
           products: s.products.map((product) => {
             const delta = deltas.get(product.id)
-            return delta ? { ...product, stock: Math.max(0, product.stock + delta) } : product
+            return delta ? { ...product, stock: product.stock + delta } : product
           }),
           movements: [
             ...[...deltas].map<StockMovement>(([productId, delta]) => ({
