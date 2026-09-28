@@ -349,12 +349,7 @@ async function renderStatement(
 
   doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(70)
   if (customer.phone) doc.text(customer.phone, M, y)
-  doc.text(
-    account.balance > 0 ? `Oldest unpaid ${account.daysOutstanding} days` : 'Fully settled',
-    A4_WIDTH - M,
-    y,
-    { align: 'right' },
-  )
+  if (account.balance <= 0) doc.text('Fully settled', A4_WIDTH - M, y, { align: 'right' })
   y += 5
 
   doc.setFontSize(8).setTextColor(110)
@@ -363,13 +358,6 @@ async function renderStatement(
     M,
     y,
   )
-  if (account.balance > 0 && meta.collectionDue) {
-    doc.setFont('helvetica', 'bold').setFontSize(9).setTextColor(0)
-    doc.text(`Please settle on or before ${meta.collectionDue}`, A4_WIDTH - M, y, {
-      align: 'right',
-    })
-    doc.setFont('helvetica', 'normal')
-  }
   y += 6
 
   autoTable(doc, {
