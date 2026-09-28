@@ -555,9 +555,12 @@ export interface PriceListItem {
 }
 
 /**
- * A customer-facing price list: what things cost, grouped by category, two
+ * A customer-facing price list: what things cost, grouped by category, in
  * columns so it reads like a menu on the wall. Cost price is deliberately
  * absent — this is handed to customers.
+ *
+ * Always a single sheet. The type is sized to fill it, and a long list moves
+ * to three columns before it shrinks too far to read.
  */
 export async function buildPriceListPdf(opts: {
   items: PriceListItem[]
@@ -567,30 +570,56 @@ export async function buildPriceListPdf(opts: {
   // Long bond: the extra height is worth about a fifth more products per page,
   // and it is what a sari-sari store has in the printer.
   const doc = await newDocument(LONG_BOND)
-  const money = (v: number) => plainMoney(v, meta.currency, meta.locale)
+  const filename = `price-list-${new Date().toISOString().slice(0, 10)}.pdf`
+  // The currency is named once in the header. On every row it is only noise.
+  const amount = (v: number) =>
+    new Intl.NumberFormat(meta.locale, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(v)
 
   const [PAGE_W, PAGE_H] = LONG_BOND
   const M = 14
   const COLUMN_GAP = 10
-  const columnWidth = (PAGE_W - M * 2 - COLUMN_GAP) / 2
-  const TOP = 34
-  const BOTTOM = PAGE_H - 18
+  const INSET = 1.5
+  const TOP = 45
+  const CAPACITY = PAGE_H - 12 - TOP
 
-  doc.setFont('helvetica', 'bold').setFontSize(18).setTextColor(0)
-  doc.text(meta.storeName, PAGE_W / 2, 20, { align: 'center' })
-  doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(90)
-  doc.text('PRICE LIST', PAGE_W / 2, 25.5, { align: 'center' })
-  doc.setFontSize(8).setTextColor(130)
+  // ---- Header ------------------------------------------------------------
+
+  doc.setFont('helvetica', 'bold').setFontSize(20).setTextColor(0)
+  doc.text(meta.storeName, PAGE_W / 2, 21, { align: 'center' })
+
+  const title = 'PRICE LIST'
+  const spacing = 1.4
+  doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(80)
+  const titleWidth = doc.getTextWidth(title) + spacing * (title.length - 1)
+  doc.text(title, PAGE_W / 2 - titleWidth / 2, 27.5, { charSpace: spacing })
+
+  doc.setDrawColor(0).setLineWidth(0.8)
+  doc.line(M, 31.5, PAGE_W - M, 31.5)
+  doc.setLineWidth(0.2)
+  doc.line(M, 32.8, PAGE_W - M, 32.8)
+
+  doc.setFontSize(8).setTextColor(110)
   doc.text(
     `As of ${new Date().toLocaleDateString(meta.locale, {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
     })}`,
-    PAGE_W / 2,
-    30,
-    { align: 'center' },
+    M,
+    37.5,
   )
+  doc.text(`Prices in ${meta.currency}`, PAGE_W - M, 37.5, { align: 'right' })
+
+  if (items.length === 0) {
+    doc.setFontSize(11).setTextColor(60)
+    doc.text('No products to list yet.', PAGE_W / 2, 55, { align: 'center' })
+    return { doc, filename }
+  }
+
+  // ---- Measure -----------------------------------------------------------
 
   // Group by category, keeping each category's items alphabetical.
   const byCategory = new Map<string, PriceListItem[]>()
@@ -601,77 +630,223 @@ export async function buildPriceListPdf(opts: {
   }
   const categories = [...byCategory.keys()].sort((a, b) => a.localeCompare(b))
 
-  let column = 0
-  let y = TOP
-  const columnX = () => M + column * (columnWidth + COLUMN_GAP)
+  interface Row {
+    group: number
+    price: string
+    unit: string
+    /** The name, wrapped rather than cut short: a customer needs all of it. */
+    lines: string[]
+    height: number
+  }
 
-  /** Move down the page, wrapping to the second column then a new page. */
-  const advance = (by: number) => {
-    y += by
-    if (y > BOTTOM) {
-      if (column === 0) {
-        column = 1
-        y = TOP
-      } else {
-        doc.addPage()
-        column = 0
-        y = TOP
+  // Every size below is scaled together, and set by `measure`.
+  let scale = 1
+  let columns = 2
+  let columnWidth = 0
+  let NAME = 10 // item name and price, in points
+  let ROW = 6.4 // a one-line item
+  let LINE = 4.4 // each extra line of a long name
+  let BAND = 6.2 // the shaded category heading
+  let HEAD = BAND + 2
+  let GAP = 5 // between one category and the next in a column
+  let rows: Row[] = []
+  let wrapped = 0
+  // Running totals, so any run of rows is measured without a loop.
+  let heightBefore: number[] = []
+  let opensBefore: number[] = []
+  let groupStart: number[] = []
+  let groupEnd: number[] = []
+
+  const opensGroup = (i: number) => i === 0 || rows[i].group !== rows[i - 1].group
+
+  const measure = (s: number, cols: number) => {
+    scale = s
+    columns = cols
+    columnWidth = (PAGE_W - M * 2 - COLUMN_GAP * (cols - 1)) / cols
+    NAME = 10 * s
+    ROW = 6.4 * s
+    LINE = 4.4 * s
+    BAND = 6.2 * s
+    HEAD = BAND + 2 * s
+    GAP = 5 * s
+
+    rows = []
+    categories.forEach((category, group) => {
+      for (const item of byCategory.get(category)!) {
+        const price = amount(item.price)
+        const unit = item.unit && item.unit !== 'pc' ? `per ${item.unit}` : ''
+        doc.setFont('helvetica', 'bold').setFontSize(NAME)
+        const priceWidth = doc.getTextWidth(price)
+        doc.setFont('helvetica', 'normal').setFontSize(7 * s)
+        const unitWidth = unit ? doc.getTextWidth(unit) + 2 : 0
+        doc.setFontSize(NAME)
+        const nameWidth = columnWidth - INSET * 2 - priceWidth - unitWidth - 4
+        const lines = doc.splitTextToSize(item.name, nameWidth) as string[]
+        rows.push({ group, price, unit, lines, height: ROW + (lines.length - 1) * LINE })
       }
+    })
+    wrapped = rows.filter((r) => r.lines.length > 1).length
+
+    const n = rows.length
+    heightBefore = [0]
+    opensBefore = [0, 0]
+    for (let i = 0; i < n; i++) heightBefore.push(heightBefore[i] + rows[i].height)
+    for (let i = 1; i < n; i++) opensBefore.push(opensBefore[i] + (opensGroup(i) ? 1 : 0))
+    groupStart = []
+    for (let i = 0; i < n; i++) groupStart.push(opensGroup(i) ? i : groupStart[i - 1])
+    groupEnd = new Array<number>(n)
+    for (let i = n - 1; i >= 0; i--) {
+      groupEnd[i] = i === n - 1 || opensGroup(i + 1) ? i + 1 : groupEnd[i + 1]
     }
   }
 
-  for (const category of categories) {
-    const list = byCategory.get(category)!
+  /** How tall rows [from, to) stand as one column, headings included. */
+  const heightOf = (from: number, to: number) =>
+    to <= from
+      ? 0
+      : HEAD +
+        heightBefore[to] -
+        heightBefore[from] +
+        (opensBefore[to] - opensBefore[from + 1]) * (GAP + HEAD)
 
-    // Never leave a heading stranded at the foot of a column.
-    if (y + 12 > BOTTOM) advance(BOTTOM)
+  // Breaking a category between columns costs about two rows of evenness, so
+  // categories stay whole unless splitting one balances the page much better.
+  const columnCost = (from: number, to: number) => {
+    if (to <= from) return 0
+    let cost = heightOf(from, to)
+    if (cost > CAPACITY) return Infinity
+    // Never one lone item on either side of a break.
+    if (!opensGroup(from)) {
+      if (Math.min(to, groupEnd[from]) - from < 2) return Infinity
+      cost += ROW * 2
+    }
+    if (to < rows.length && !opensGroup(to) && to - Math.max(from, groupStart[to]) < 2) {
+      return Infinity
+    }
+    return cost
+  }
 
-    doc.setFont('helvetica', 'bold').setFontSize(10).setTextColor(0)
-    doc.text(category.toUpperCase(), columnX(), y)
-    doc.setDrawColor(0).setLineWidth(0.4)
-    doc.line(columnX(), y + 1.5, columnX() + columnWidth, y + 1.5)
-    advance(6)
+  /**
+   * Where each column starts, so the tallest column is as short as it can be.
+   * Null when the rows cannot fit the page at the current size.
+   */
+  const plan = (): number[] | null => {
+    const n = rows.length
+    let tallest = new Array<number>(n + 1).fill(Infinity)
+    tallest[0] = 0
+    const picks: number[][] = []
+    for (let k = 0; k < columns; k++) {
+      const next = new Array<number>(n + 1).fill(Infinity)
+      const pick = new Array<number>(n + 1).fill(-1)
+      for (let to = 0; to <= n; to++) {
+        // Later breaks first, so a tie keeps the earlier columns fuller.
+        for (let from = to; from >= 0; from--) {
+          if (heightOf(from, to) > CAPACITY) break
+          if (tallest[from] === Infinity) continue
+          const cost = Math.max(tallest[from], columnCost(from, to))
+          if (cost < next[to]) {
+            next[to] = cost
+            pick[to] = from
+          }
+        }
+      }
+      picks.push(pick)
+      tallest = next
+    }
+    if (tallest[n] === Infinity) return null
+    const starts = [n]
+    for (let k = columns - 1; k >= 0; k--) starts.unshift(picks[k][starts[0]])
+    return starts
+  }
 
-    for (const item of list) {
-      const priceText = money(item.price)
-      const priceWidth = doc.getTextWidth(priceText)
-      const nameWidth = columnWidth - priceWidth - 4
+  const tryLayout = (s: number, cols: number) => {
+    measure(s, cols)
+    // Larger type is not worth names breaking over two lines.
+    if (s > 1 && wrapped > rows.length * 0.1) return null
+    return plan()
+  }
 
-      doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(20)
-      const name = (doc.splitTextToSize(item.name, nameWidth) as string[])[0]
-      doc.text(name, columnX(), y)
-      doc.setTextColor(0)
-      doc.text(priceText, columnX() + columnWidth, y, { align: 'right' })
+  const sizes = (from: number, to: number) => {
+    const list: number[] = []
+    for (let s = from; s >= to - 1e-9; s -= 0.05) list.push(Math.round(s * 100) / 100)
+    return list
+  }
+
+  // Two columns while the type stays readable; a long list goes to three
+  // rather than shrink below that.
+  let starts: number[] | null = null
+  for (const s of sizes(1.25, 0.75)) if ((starts = tryLayout(s, 2))) break
+  if (!starts) {
+    for (const s of sizes(1, 0.1)) if ((starts = tryLayout(s, 2) ?? tryLayout(s, 3))) break
+  }
+  if (!starts) throw new Error('Too many products to fit one page.')
+
+  // ---- Draw --------------------------------------------------------------
+
+  const drawColumn = (from: number, to: number, x: number) => {
+    const baseline = 4.3 * scale
+    let y = TOP
+    for (let i = from; i < to; i++) {
+      const row = rows[i]
+      if (i === from || opensGroup(i)) {
+        if (i !== from) y += GAP
+        doc.setFillColor(236, 236, 236)
+        doc.rect(x, y, columnWidth, BAND, 'F')
+        doc.setFont('helvetica', 'bold').setFontSize(9.5 * scale).setTextColor(0)
+        const heading = categories[row.group].toUpperCase()
+        doc.text(heading, x + INSET + 0.5, y + baseline)
+        // Picking up a category the previous column started.
+        if (!opensGroup(i)) {
+          const after = x + INSET + 0.5 + doc.getTextWidth(heading) + 1.5
+          doc.setFont('helvetica', 'normal').setFontSize(7.5 * scale).setTextColor(110)
+          doc.text('continued', after, y + baseline)
+        }
+        y += HEAD
+      }
+
+      const firstBaseline = y + baseline
+      const lastBaseline = firstBaseline + (row.lines.length - 1) * LINE
+      const right = x + columnWidth - INSET
+
+      doc.setFont('helvetica', 'normal').setFontSize(NAME).setTextColor(25)
+      row.lines.forEach((line, n) => doc.text(line, x + INSET, firstBaseline + n * LINE))
+      const nameEnd = x + INSET + doc.getTextWidth(row.lines[row.lines.length - 1])
+
+      doc.setFont('helvetica', 'bold').setFontSize(NAME).setTextColor(0)
+      doc.text(row.price, right, lastBaseline, { align: 'right' })
+      let leaderEnd = right - doc.getTextWidth(row.price) - 1.5
+
+      if (row.unit) {
+        doc.setFont('helvetica', 'normal').setFontSize(7 * scale).setTextColor(130)
+        doc.text(row.unit, leaderEnd, lastBaseline, { align: 'right' })
+        leaderEnd -= doc.getTextWidth(row.unit) + 1.5
+      }
 
       // A dotted leader ties the name to its price, as a menu does.
-      const from = columnX() + doc.getTextWidth(name) + 2
-      const to = columnX() + columnWidth - priceWidth - 2
-      if (to > from) {
-        doc.setDrawColor(190).setLineWidth(0.2)
-        doc.setLineDashPattern([0.5, 1], 0)
-        doc.line(from, y - 0.8, to, y - 0.8)
+      if (leaderEnd > nameEnd + 3) {
+        doc.setDrawColor(175).setLineWidth(0.25)
+        doc.setLineDashPattern([0.4, 1.1], 0)
+        doc.line(nameEnd + 1.5, lastBaseline - 0.6 * scale, leaderEnd, lastBaseline - 0.6 * scale)
         doc.setLineDashPattern([], 0)
       }
 
-      if (item.unit && item.unit !== 'pc') {
-        doc.setFontSize(6.5).setTextColor(140)
-        doc.text(`per ${item.unit}`, columnX() + columnWidth, y + 3, { align: 'right' })
-        advance(7.5)
-      } else {
-        advance(5.5)
-      }
+      y += row.height
     }
-    advance(3)
   }
 
-  if (items.length === 0) {
-    doc.setFont('helvetica', 'normal').setFontSize(11).setTextColor(60)
-    doc.text('No products to list yet.', PAGE_W / 2, 50, { align: 'center' })
+  // A list too short to need every column is centred, not left-aligned.
+  const filled: Array<[number, number]> = []
+  for (let k = 0; k < columns; k++) {
+    if (starts[k + 1] > starts[k]) filled.push([starts[k], starts[k + 1]])
+  }
+  const blockWidth = filled.length * columnWidth + (filled.length - 1) * COLUMN_GAP
+  let x = (PAGE_W - blockWidth) / 2
+  for (const [from, to] of filled) {
+    drawColumn(from, to, x)
+    x += columnWidth + COLUMN_GAP
   }
 
-  stampPageNumbers(doc, `${meta.storeName} price list`)
-
-  return { doc, filename: `price-list-${new Date().toISOString().slice(0, 10)}.pdf` }
+  return { doc, filename }
 }
 
 export async function downloadPriceListPdf(opts: {
