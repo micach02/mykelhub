@@ -4,6 +4,7 @@ import {
   Archive,
   ArchiveRestore,
   Boxes,
+  ClipboardList,
   Download,
   Pencil,
   Plus,
@@ -30,7 +31,7 @@ import { useStore } from '../store/useStore'
 import { useFormat } from '../lib/useFormat'
 import { inventoryValue, lowStock, marginPct, stockLevel } from '../lib/analytics'
 import { downloadCsv } from '../lib/utils'
-import { downloadPriceListPdf } from '../lib/pdf'
+import { downloadPriceListPdf, downloadRestockListPdf } from '../lib/pdf'
 import { useDocumentMeta } from '../lib/useDocumentMeta'
 import type { Product } from '../types'
 
@@ -59,6 +60,7 @@ export function Inventory() {
   const [detail, setDetail] = useState<Product | null>(null)
   const [pendingDelete, setPendingDelete] = useState<Product | null>(null)
   const [savingList, setSavingList] = useState(false)
+  const [savingRestock, setSavingRestock] = useState(false)
   const meta = useDocumentMeta()
 
   // Deep links from the topbar search and the dashboard alerts.
@@ -154,6 +156,33 @@ export function Inventory() {
     }
   }
 
+  /** Out of stock and running low, to take to the wholesaler. */
+  async function downloadRestockList() {
+    if (restockList.length === 0) {
+      toast.info('Nothing is running low. Everything is stocked.')
+      return
+    }
+    setSavingRestock(true)
+    try {
+      await downloadRestockListPdf({
+        items: restockList.map((p) => ({
+          name: p.name,
+          category: p.category,
+          unit: p.unit,
+          stock: p.stock,
+          reorderLevel: p.reorderLevel,
+          cost: p.cost,
+        })),
+        meta,
+      })
+      toast.success(`Restock list for ${restockList.length} products downloaded.`)
+    } catch {
+      toast.error('The restock list could not be prepared.')
+    } finally {
+      setSavingRestock(false)
+    }
+  }
+
   function exportCsv() {
     downloadCsv(
       `mykelhub-inventory-${new Date().toISOString().slice(0, 10)}.csv`,
@@ -187,6 +216,10 @@ export function Inventory() {
             <Button onClick={downloadPriceList} disabled={savingList}>
               <Receipt size={15} aria-hidden />
               {savingList ? 'Preparing…' : 'Price list'}
+            </Button>
+            <Button onClick={downloadRestockList} disabled={savingRestock}>
+              <ClipboardList size={15} aria-hidden />
+              {savingRestock ? 'Preparing…' : 'Restock list'}
             </Button>
             <Button
               variant="primary"

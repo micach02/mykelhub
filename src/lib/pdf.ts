@@ -1,3 +1,4 @@
+import type { RowInput } from 'jspdf-autotable'
 import type { Account, AppliedTo, OutstandingCharge } from './analytics'
 import { amountInWords } from './words'
 import { paymentMethodLabel } from './labels'
@@ -678,5 +679,184 @@ export async function downloadPriceListPdf(opts: {
   meta: DocumentMeta
 }): Promise<void> {
   const { doc, filename } = await buildPriceListPdf(opts)
+  doc.save(filename)
+}
+
+// ---------------------------------------------------------------------------
+// Restock list
+// ---------------------------------------------------------------------------
+
+export interface RestockItem {
+  name: string
+  category: string
+  unit: string
+  stock: number
+  reorderLevel: number
+  cost: number
+}
+
+/**
+ * What to buy, for taking to the wholesaler: out of stock first, then running
+ * low, each with a box to tick off. Cost is on it, so it is not for customers.
+ */
+export async function buildRestockListPdf(opts: {
+  items: RestockItem[]
+  meta: DocumentMeta
+}): Promise<{ doc: Awaited<ReturnType<typeof newDocument>>; filename: string }> {
+  const { items, meta } = opts
+  const { default: autoTable } = await import('jspdf-autotable')
+  const doc = await newDocument(LONG_BOND)
+  const money = (v: number) => plainMoney(v, meta.currency, meta.locale)
+
+  const [PAGE_W] = LONG_BOND
+  const M = 14
+  let y = 18
+
+  // The same top-up the Inventory and Reports pages suggest: back to twice
+  // the reorder level.
+  const toBuy = (item: RestockItem) => Math.max(item.reorderLevel * 2 - item.stock, 0)
+  const byName = (a: RestockItem, b: RestockItem) => a.name.localeCompare(b.name)
+  const out = items.filter((i) => i.stock <= 0).sort(byName)
+  const low = items.filter((i) => i.stock > 0).sort(byName)
+  const totalCost = items.reduce((sum, i) => sum + toBuy(i) * i.cost, 0)
+
+  doc.setFont('helvetica', 'bold').setFontSize(15).setTextColor(0)
+  doc.text(meta.storeName, M, y)
+  doc.setFont('helvetica', 'normal').setFontSize(8).setTextColor(90)
+  doc.text(
+    `As of ${new Date().toLocaleDateString(meta.locale, {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })}`,
+    PAGE_W - M,
+    y - 1,
+    { align: 'right' },
+  )
+  if (meta.ownerName) {
+    doc.text(`Prepared by ${meta.ownerName}`, PAGE_W - M, y + 3, { align: 'right' })
+  }
+  y += 4
+  doc.setFontSize(9).setTextColor(90)
+  doc.text('RESTOCK LIST', M, y)
+  y += 3
+
+  doc.setDrawColor(0).setLineWidth(0.5)
+  doc.line(M, y, PAGE_W - M, y)
+  y += 6
+
+  doc.setFontSize(9).setTextColor(70)
+  doc.text(
+    `${out.length} out of stock  ·  ${low.length} running low  ·  about ${money(totalCost)} to refill`,
+    M,
+    y,
+  )
+  y += 5
+
+  // Section headings span the table; they get no tick box.
+  const sectionRows = new Set<number>()
+  const body: RowInput[] = []
+  const section = (title: string, list: RestockItem[]) => {
+    if (list.length === 0) return
+    sectionRows.add(body.length)
+    body.push([
+      {
+        content: `${title} (${list.length})`,
+        colSpan: 7,
+        styles: {
+          fontStyle: 'bold',
+          fontSize: 8,
+          textColor: 60,
+          cellPadding: { top: 3.5, bottom: 1.2, left: 1.6, right: 1.6 },
+        },
+      },
+    ])
+    for (const item of list) {
+      const qty = toBuy(item)
+      body.push([
+        '',
+        item.name,
+        item.category,
+        `${item.stock} ${item.unit}`,
+        String(item.reorderLevel),
+        // Left blank rather than "0" when there is no reorder level to go by.
+        qty > 0 ? `${qty} ${item.unit}` : '',
+        qty > 0 ? money(qty * item.cost) : '',
+      ])
+    }
+  }
+  section('OUT OF STOCK', out)
+  section('RUNNING LOW', low)
+
+  const right = { halign: 'right' as const }
+  autoTable(doc, {
+    startY: y,
+    margin: { left: M, right: M, bottom: 18 },
+    head: [
+      [
+        '',
+        'Product',
+        'Category',
+        { content: 'Left', styles: right },
+        { content: 'Reorder at', styles: right },
+        { content: 'Buy', styles: right },
+        { content: 'Est. cost', styles: right },
+      ],
+    ],
+    body:
+      body.length > 0
+        ? body
+        : [[{ content: 'Nothing is running low. Everything is stocked.', colSpan: 7 }]],
+    foot: [
+      [
+        { content: 'Estimated cost to refill', colSpan: 6 },
+        { content: money(totalCost), styles: right },
+      ],
+    ],
+    theme: 'plain',
+    styles: { font: 'helvetica', fontSize: 8.5, cellPadding: 1.6, textColor: 20 },
+    headStyles: {
+      fontStyle: 'bold',
+      fontSize: 7.5,
+      textColor: 60,
+      lineWidth: { bottom: 0.4 },
+      lineColor: 0,
+    },
+    footStyles: {
+      fontStyle: 'bold',
+      fontSize: 9,
+      textColor: 0,
+      lineWidth: { top: 0.4 },
+      lineColor: 0,
+    },
+    bodyStyles: { lineWidth: { bottom: 0.1 }, lineColor: 200 },
+    columnStyles: {
+      0: { cellWidth: 8 },
+      1: { cellWidth: 'auto' },
+      2: { cellWidth: 34 },
+      3: { cellWidth: 20, halign: 'right' },
+      4: { cellWidth: 20, halign: 'right' },
+      5: { cellWidth: 22, halign: 'right', fontStyle: 'bold' },
+      6: { cellWidth: 30, halign: 'right' },
+    },
+    didDrawCell: (data) => {
+      if (data.section !== 'body' || data.column.index !== 0) return
+      if (body.length === 0 || sectionRows.has(data.row.index)) return
+      const box = 3.2
+      doc.setDrawColor(120).setLineWidth(0.25)
+      doc.rect(data.cell.x + 1.6, data.cell.y + (data.cell.height - box) / 2, box, box)
+    },
+  })
+
+  stampPageNumbers(doc, `${meta.storeName} restock list`)
+
+  return { doc, filename: `restock-list-${new Date().toISOString().slice(0, 10)}.pdf` }
+}
+
+export async function downloadRestockListPdf(opts: {
+  items: RestockItem[]
+  meta: DocumentMeta
+}): Promise<void> {
+  const { doc, filename } = await buildRestockListPdf(opts)
   doc.save(filename)
 }
