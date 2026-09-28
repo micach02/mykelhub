@@ -55,7 +55,7 @@ taken, each monthly parking charge, each payment, and the running balance after
 every entry. Two actions do the work: **Add credit sale** (pick items, they come
 off the shelf and go onto the account) and **Record payment** (with the date
 paid, so you can enter it the next morning). **Print** produces a proper
-statement of account on A4 — see below.
+statement of account on long bond — see below.
 
 Entries can be corrected in place. A charge opens its line items, date, note
 and which customer it belongs to; changing the quantities moves stock by the
@@ -185,8 +185,8 @@ download a document — so it costs nothing until the button is pressed.
 ### Payment receipt
 
 Recording a payment offers a receipt straight away, and the receipt icon on any
-payment row in the ledger fetches an old one. It is a 76mm slip **centred on an
-A4 page**, so it can be cut out or handed over whole.
+payment row in the ledger fetches an old one. It is a 76mm slip **centred on a
+long bond page**, so it can be cut out or handed over whole.
 
 It itemises **what the payment settled**, grouped into Parking and Goods
 with a subtotal each, and every product listed on its own line rather than
@@ -203,18 +203,30 @@ did on the day.
 ### Price list
 
 **Price list** on the Inventory page produces a customer-facing menu: products
-grouped by category with dotted leaders to the price, two columns, flowing onto
-further pages as needed. Cost price is deliberately absent — this one gets
-handed across the counter.
+grouped by category with dotted leaders to the price. Cost price is deliberately
+absent — this one gets handed across the counter.
 
-It prints on **long bond** (8.5 × 13in, 216 × 330mm), not A4 — the taller sheet
-fits noticeably more products per page, and it is what the shop has in the
-printer. Note this is the Philippine long/folio size, not US Legal (8.5 × 14in),
-which would leave a blank strip at the foot. Receipts and statements stay on A4.
+It always fits **one sheet**. The type is sized to fill the page, larger for a
+short list, and a long list moves from two columns to three before the type
+gets too small to read. Columns are balanced, and a category stays in one
+column unless splitting it evens the page out a lot.
+
+### Restock list
+
+**Restock list** on the Inventory page lists what is out of stock, then what is
+running low, each with a box to tick off at the wholesaler. It suggests buying
+enough to get back to twice the reorder level and totals the cost. Cost prices
+are on it, so it is for the owner, not for customers.
+
+### Paper size
+
+Every PDF prints on **long bond** (8.5 × 13in, 216 × 330mm), not A4 — it is
+what the shop has in the printer. Note this is the Philippine long/folio size,
+not US Legal (8.5 × 14in), which would leave a blank strip at the foot.
 
 ### Statement of account
 
-The ledger's **Download PDF** produces a statement on A4. It lists **only what
+The ledger's **Download PDF** produces a statement on long bond. It lists **only what
 is still unpaid** — not the whole history — because a statement exists to be
 settled, and a customer does not need to re-read months of paid entries to find
 what they owe. The part-paid charge shows its remainder. Totals charged and

@@ -9,19 +9,18 @@ import type { Customer, Payment } from '../types'
  * the file stays small. jsPDF is pulled in on demand: it is far bigger than
  * anything else here and most sessions never download a document.
  */
-async function newDocument(format: 'a4' | [number, number] = 'a4') {
+async function newDocument() {
   const { jsPDF } = await import('jspdf')
-  return new jsPDF({ unit: 'mm', format, compress: true })
+  return new jsPDF({ unit: 'mm', format: [PAGE_WIDTH, PAGE_HEIGHT], compress: true })
 }
 
-const A4_WIDTH = 210
-const A4_HEIGHT = 297
-
 /**
- * Philippine long bond, 8.5 by 13 inches. Not US Legal, which is 8.5 by 14
- * and will leave a blank strip at the foot of a page printed on long.
+ * Every document is on Philippine long bond, 8.5 by 13 inches: it is what a
+ * sari-sari store has in the printer. Not US Legal, which is 8.5 by 14 and
+ * will leave a blank strip at the foot of a page printed on long.
  */
-const LONG_BOND: [number, number] = [215.9, 330.2]
+const PAGE_WIDTH = 215.9
+const PAGE_HEIGHT = 330.2
 
 /** Peso and other signs are not in the built-in PDF fonts; spell the code. */
 function plainMoney(value: number, currency: string, locale: string): string {
@@ -89,7 +88,7 @@ export async function buildReceiptPdf(opts: ReceiptInput) {
   const money = (v: number) => plainMoney(v, meta.currency, meta.locale)
 
   const W = 76
-  const left = (A4_WIDTH - W) / 2
+  const left = (PAGE_WIDTH - W) / 2
   const right = left + W
   const mid = left + W / 2
 
@@ -125,14 +124,14 @@ export async function buildReceiptPdf(opts: ReceiptInput) {
   const height =
     8 + 5 + 6 + 11 + wordsLines.length * 4 + 6 + rows.length * 5 + settledHeight +
     8 + 3 * 5 + 4 + 12
-  let y = Math.max(16, (A4_HEIGHT - height) / 2)
+  let y = Math.max(16, (PAGE_HEIGHT - height) / 2)
 
   /**
    * A long settlement can outrun the page. Carry on overleaf rather than
    * drawing past the bottom, where the text is simply lost.
    */
   const needRoom = (height: number) => {
-    if (y + height <= A4_HEIGHT - 14) return
+    if (y + height <= PAGE_HEIGHT - 14) return
     doc.addPage()
     y = 20
   }
@@ -324,9 +323,9 @@ async function renderStatement(
   doc.setFont('helvetica', 'bold').setFontSize(15).setTextColor(0)
   doc.text(meta.storeName, M, y)
   doc.setFont('helvetica', 'normal').setFontSize(8).setTextColor(90)
-  doc.text(`Issued ${date(new Date().toISOString())}`, A4_WIDTH - M, y - 1, { align: 'right' })
+  doc.text(`Issued ${date(new Date().toISOString())}`, PAGE_WIDTH - M, y - 1, { align: 'right' })
   if (meta.ownerName) {
-    doc.text(`Prepared by ${meta.ownerName}`, A4_WIDTH - M, y + 3, { align: 'right' })
+    doc.text(`Prepared by ${meta.ownerName}`, PAGE_WIDTH - M, y + 3, { align: 'right' })
   }
   y += 4
   doc.setFontSize(9).setTextColor(90)
@@ -334,23 +333,23 @@ async function renderStatement(
   y += 3
 
   doc.setDrawColor(0).setLineWidth(0.5)
-  doc.line(M, y, A4_WIDTH - M, y)
+  doc.line(M, y, PAGE_WIDTH - M, y)
   y += 7
 
   doc.setFontSize(7.5).setTextColor(110)
   doc.text('ACCOUNT', M, y)
-  doc.text('BALANCE DUE', A4_WIDTH - M, y, { align: 'right' })
+  doc.text('BALANCE DUE', PAGE_WIDTH - M, y, { align: 'right' })
   y += 5
 
   doc.setFont('helvetica', 'bold').setFontSize(13).setTextColor(0)
   doc.text(customer.name, M, y)
   doc.setFontSize(17)
-  doc.text(money(account.balance), A4_WIDTH - M, y + 1, { align: 'right' })
+  doc.text(money(account.balance), PAGE_WIDTH - M, y + 1, { align: 'right' })
   y += 5
 
   doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(70)
   if (customer.phone) doc.text(customer.phone, M, y)
-  if (account.balance <= 0) doc.text('Fully settled', A4_WIDTH - M, y, { align: 'right' })
+  if (account.balance <= 0) doc.text('Fully settled', PAGE_WIDTH - M, y, { align: 'right' })
   y += 5
 
   doc.setFontSize(8).setTextColor(110)
@@ -432,7 +431,7 @@ export async function buildAllStatementsPdf(
 
   if (drawn === 0) {
     doc.setFont('helvetica', 'normal').setFontSize(11).setTextColor(60)
-    doc.text('Nobody owes anything. Every account is settled.', A4_WIDTH / 2, 40, {
+    doc.text('Nobody owes anything. Every account is settled.', PAGE_WIDTH / 2, 40, {
       align: 'center',
     })
   }
@@ -489,7 +488,7 @@ async function drawPaymentQrs(
   const { PAYMENT_QRS } = await import('./paymentQr')
   if (PAYMENT_QRS.length === 0) return
 
-  const content = A4_WIDTH - margin * 2
+  const content = PAGE_WIDTH - margin * 2
   const SIZE = 42
   // Generous, deliberately: phone cameras grab whatever QR is nearest the
   // middle of frame, so codes packed together get scanned by mistake.
@@ -506,13 +505,13 @@ async function drawPaymentQrs(
 
   // Keep the whole strip together rather than splitting it over a page break.
   let y = startY
-  if (y + blockHeight > A4_HEIGHT - 16) {
+  if (y + blockHeight > PAGE_HEIGHT - 16) {
     doc.addPage()
     y = 24
   }
 
   doc.setDrawColor(200).setLineWidth(0.3)
-  doc.line(margin, y - 4, A4_WIDTH - margin, y - 4)
+  doc.line(margin, y - 4, PAGE_WIDTH - margin, y - 4)
 
   doc.setFont('helvetica', 'bold').setFontSize(9).setTextColor(0)
   doc.text('HOW TO PAY', margin, y + 1)
@@ -567,9 +566,7 @@ export async function buildPriceListPdf(opts: {
   meta: DocumentMeta
 }): Promise<{ doc: Awaited<ReturnType<typeof newDocument>>; filename: string }> {
   const { items, meta } = opts
-  // Long bond: the extra height is worth about a fifth more products per page,
-  // and it is what a sari-sari store has in the printer.
-  const doc = await newDocument(LONG_BOND)
+  const doc = await newDocument()
   const filename = `price-list-${new Date().toISOString().slice(0, 10)}.pdf`
   // The currency is named once in the header. On every row it is only noise.
   const amount = (v: number) =>
@@ -578,28 +575,27 @@ export async function buildPriceListPdf(opts: {
       maximumFractionDigits: 2,
     }).format(v)
 
-  const [PAGE_W, PAGE_H] = LONG_BOND
   const M = 14
   const COLUMN_GAP = 10
   const INSET = 1.5
   const TOP = 45
-  const CAPACITY = PAGE_H - 12 - TOP
+  const CAPACITY = PAGE_HEIGHT - 12 - TOP
 
   // ---- Header ------------------------------------------------------------
 
   doc.setFont('helvetica', 'bold').setFontSize(20).setTextColor(0)
-  doc.text(meta.storeName, PAGE_W / 2, 21, { align: 'center' })
+  doc.text(meta.storeName, PAGE_WIDTH / 2, 21, { align: 'center' })
 
   const title = 'PRICE LIST'
   const spacing = 1.4
   doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(80)
   const titleWidth = doc.getTextWidth(title) + spacing * (title.length - 1)
-  doc.text(title, PAGE_W / 2 - titleWidth / 2, 27.5, { charSpace: spacing })
+  doc.text(title, PAGE_WIDTH / 2 - titleWidth / 2, 27.5, { charSpace: spacing })
 
   doc.setDrawColor(0).setLineWidth(0.8)
-  doc.line(M, 31.5, PAGE_W - M, 31.5)
+  doc.line(M, 31.5, PAGE_WIDTH - M, 31.5)
   doc.setLineWidth(0.2)
-  doc.line(M, 32.8, PAGE_W - M, 32.8)
+  doc.line(M, 32.8, PAGE_WIDTH - M, 32.8)
 
   doc.setFontSize(8).setTextColor(110)
   doc.text(
@@ -611,11 +607,11 @@ export async function buildPriceListPdf(opts: {
     M,
     37.5,
   )
-  doc.text(`Prices in ${meta.currency}`, PAGE_W - M, 37.5, { align: 'right' })
+  doc.text(`Prices in ${meta.currency}`, PAGE_WIDTH - M, 37.5, { align: 'right' })
 
   if (items.length === 0) {
     doc.setFontSize(11).setTextColor(60)
-    doc.text('No products to list yet.', PAGE_W / 2, 55, { align: 'center' })
+    doc.text('No products to list yet.', PAGE_WIDTH / 2, 55, { align: 'center' })
     return { doc, filename }
   }
 
@@ -662,7 +658,7 @@ export async function buildPriceListPdf(opts: {
   const measure = (s: number, cols: number) => {
     scale = s
     columns = cols
-    columnWidth = (PAGE_W - M * 2 - COLUMN_GAP * (cols - 1)) / cols
+    columnWidth = (PAGE_WIDTH - M * 2 - COLUMN_GAP * (cols - 1)) / cols
     NAME = 10 * s
     ROW = 6.4 * s
     LINE = 4.4 * s
@@ -840,7 +836,7 @@ export async function buildPriceListPdf(opts: {
     if (starts[k + 1] > starts[k]) filled.push([starts[k], starts[k + 1]])
   }
   const blockWidth = filled.length * columnWidth + (filled.length - 1) * COLUMN_GAP
-  let x = (PAGE_W - blockWidth) / 2
+  let x = (PAGE_WIDTH - blockWidth) / 2
   for (const [from, to] of filled) {
     drawColumn(from, to, x)
     x += columnWidth + COLUMN_GAP
@@ -880,10 +876,9 @@ export async function buildRestockListPdf(opts: {
 }): Promise<{ doc: Awaited<ReturnType<typeof newDocument>>; filename: string }> {
   const { items, meta } = opts
   const { default: autoTable } = await import('jspdf-autotable')
-  const doc = await newDocument(LONG_BOND)
+  const doc = await newDocument()
   const money = (v: number) => plainMoney(v, meta.currency, meta.locale)
 
-  const [PAGE_W] = LONG_BOND
   const M = 14
   let y = 18
 
@@ -904,12 +899,12 @@ export async function buildRestockListPdf(opts: {
       month: 'long',
       year: 'numeric',
     })}`,
-    PAGE_W - M,
+    PAGE_WIDTH - M,
     y - 1,
     { align: 'right' },
   )
   if (meta.ownerName) {
-    doc.text(`Prepared by ${meta.ownerName}`, PAGE_W - M, y + 3, { align: 'right' })
+    doc.text(`Prepared by ${meta.ownerName}`, PAGE_WIDTH - M, y + 3, { align: 'right' })
   }
   y += 4
   doc.setFontSize(9).setTextColor(90)
@@ -917,7 +912,7 @@ export async function buildRestockListPdf(opts: {
   y += 3
 
   doc.setDrawColor(0).setLineWidth(0.5)
-  doc.line(M, y, PAGE_W - M, y)
+  doc.line(M, y, PAGE_WIDTH - M, y)
   y += 6
 
   doc.setFontSize(9).setTextColor(70)

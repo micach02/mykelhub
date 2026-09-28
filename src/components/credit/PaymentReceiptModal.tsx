@@ -19,7 +19,7 @@ function receiptNumber(payment: Payment): string {
 
 /**
  * The slip handed over when someone pays. Printed narrow so it suits a
- * thermal roll, and cuts cleanly out of A4 otherwise.
+ * thermal roll, and cuts cleanly out of a long bond sheet otherwise.
  */
 export function PaymentReceiptModal({
   payment,
