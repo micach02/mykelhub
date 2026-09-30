@@ -276,15 +276,25 @@ export function ProductFormModal({
           )}
         </Field>
 
-        {repricing && repriced > 0 ? (
+        {repricing && (repriced > 0 || repricing.kept > 0) ? (
           <div className="rounded-lg border border-line bg-surface-2 px-3.5 py-2.5 sm:col-span-2">
             <p className="text-[12.5px] leading-relaxed text-ink">
-              {repriced} unpaid credit {repriced === 1 ? 'charge' : 'charges'}
-              {repricing.customers > 1 ? ` across ${repricing.customers} customers` : ''} will
-              move to <span className="tnum font-semibold">{fmt.money(price)}</span>. What{' '}
-              {repricing.customers > 1 ? 'they owe' : 'the customer owes'} goes{' '}
-              {repricing.change >= 0 ? 'up' : 'down'} by{' '}
-              <span className="tnum font-semibold">{fmt.money(Math.abs(repricing.change))}</span>.
+              {repriced > 0 ? (
+                <>
+                  {repriced} unpaid credit {repriced === 1 ? 'charge' : 'charges'}
+                  {repricing.customers > 1 ? ` across ${repricing.customers} customers` : ''} will
+                  move to <span className="tnum font-semibold">{fmt.money(price)}</span>. What{' '}
+                  {repricing.customers > 1 ? 'they owe' : 'the customer owes'} goes{' '}
+                  {repricing.change >= 0 ? 'up' : 'down'} by{' '}
+                  <span className="tnum font-semibold">
+                    {fmt.money(Math.abs(repricing.change))}
+                  </span>
+                  .{' '}
+                </>
+              ) : null}
+              {repricing.kept > 0
+                ? `${repricing.kept} unpaid ${repricing.kept === 1 ? 'charge has' : 'charges have'} a price set by hand and ${repricing.kept === 1 ? 'keeps it' : 'keep it'}.`
+                : null}
             </p>
           </div>
         ) : null}

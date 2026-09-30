@@ -180,7 +180,8 @@ export const useStore = create<StoreState>()(
           if (price === undefined) return { products }
 
           // Credit still owed moves to the new price. Charges already paid off,
-          // and every cash and Maya sale, keep what they were sold at.
+          // prices set by hand on a charge, and every cash and Maya sale keep
+          // what they were sold at.
           const { saleIds } = unpaidRepricing(id, price, s.customers, s.sales, s.payments)
           if (saleIds.size === 0) return { products }
           return {
@@ -188,7 +189,7 @@ export const useStore = create<StoreState>()(
             sales: s.sales.map((sale) => {
               if (!saleIds.has(sale.id)) return sale
               const items = sale.items.map((line) =>
-                line.productId === id ? { ...line, unitPrice: price } : line,
+                line.productId === id && !line.priceSetByHand ? { ...line, unitPrice: price } : line,
               )
               const total = round2(items.reduce((sum, i) => sum + i.qty * i.unitPrice, 0))
               return { ...sale, items, total }

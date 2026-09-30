@@ -46,6 +46,11 @@ export interface SaleItem {
   qty: number
   unitPrice: number
   unitCost: number
+  /**
+   * Set by hand on a credit charge. Other credit still owed follows the shelf
+   * price when it changes; this line keeps the price it was given.
+   */
+  priceSetByHand?: boolean
 }
 
 /** How a sale was settled. `credit` means it went on the customer's account. */

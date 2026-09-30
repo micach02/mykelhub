@@ -1,4 +1,4 @@
-import type { Customer, ID, Payment, Product, Sale, VaultEntry } from '../types'
+import type { Customer, ID, Payment, Product, Sale, SaleItem, VaultEntry } from '../types'
 import { dayKey } from './utils'
 import { paymentMethodLabel } from './labels'
 
@@ -269,12 +269,15 @@ export interface Repricing {
   customers: number
   /** How much what they owe goes up in total; negative when it goes down. */
   change: number
+  /** Unpaid charges left alone because their price was set by hand. */
+  kept: number
 }
 
 /**
  * Credit still owed follows the shelf price. Finds the credit sales holding a
  * product at anything other than `price` that payments have not fully covered,
- * part paid included. A charge already paid off keeps the price it was paid at.
+ * part paid included. A charge already paid off keeps the price it was paid at,
+ * and so does a line whose price was set by hand on the charge.
  */
 export function unpaidRepricing(
   productId: ID,
@@ -283,11 +286,13 @@ export function unpaidRepricing(
   sales: Sale[],
   payments: Payment[],
 ): Repricing {
+  const differs = (line: SaleItem) => line.productId === productId && line.unitPrice !== price
+
   const holding = new Map<ID, Sale>()
   const owners = new Set<ID>()
   for (const sale of sales) {
     if (!isLive(sale) || sale.settlement !== 'credit' || !sale.customerId) continue
-    if (!sale.items.some((l) => l.productId === productId && l.unitPrice !== price)) continue
+    if (!sale.items.some(differs)) continue
     holding.set(sale.id, sale)
     owners.add(sale.customerId)
   }
@@ -295,20 +300,24 @@ export function unpaidRepricing(
   const saleIds = new Set<ID>()
   const affected = new Set<ID>()
   let change = 0
+  let kept = 0
   for (const customer of customers) {
     if (!owners.has(customer.id)) continue
     for (const row of outstandingCharges(customer, sales, payments)) {
       const sale = holding.get(row.id)
       if (!sale) continue
+      const moving = sale.items.filter((line) => differs(line) && !line.priceSetByHand)
+      if (moving.length === 0) {
+        kept++
+        continue
+      }
       saleIds.add(sale.id)
       affected.add(customer.id)
-      for (const line of sale.items) {
-        if (line.productId === productId) change += line.qty * (price - line.unitPrice)
-      }
+      for (const line of moving) change += line.qty * (price - line.unitPrice)
     }
   }
 
-  return { saleIds, customers: affected.size, change: Math.round(change * 100) / 100 }
+  return { saleIds, customers: affected.size, change: Math.round(change * 100) / 100, kept }
 }
 
 export interface AppliedTo {
