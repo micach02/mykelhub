@@ -15,6 +15,7 @@ import type {
   VaultEntry,
 } from '../types'
 import { buildSeedData } from '../lib/seed'
+import { unpaidRepricing } from '../lib/analytics'
 import { uid } from '../lib/utils'
 
 const DEFAULT_SETTINGS: Settings = {
@@ -50,6 +51,7 @@ interface StoreState {
 
   // Products -------------------------------------------------------------
   addProduct: (input: Omit<Product, 'id' | 'createdAt'>) => Product
+  /** Setting the price also moves any credit still owed for it to that price. */
   updateProduct: (id: ID, patch: Partial<Product>) => void
   deleteProduct: (id: ID) => void
   setProductStatus: (id: ID, status: Product['status']) => void
@@ -172,9 +174,27 @@ export const useStore = create<StoreState>()(
       },
 
       updateProduct: (id, patch) =>
-        set((s) => ({
-          products: s.products.map((p) => (p.id === id ? { ...p, ...patch, id: p.id } : p)),
-        })),
+        set((s) => {
+          const products = s.products.map((p) => (p.id === id ? { ...p, ...patch, id: p.id } : p))
+          const price = patch.price
+          if (price === undefined) return { products }
+
+          // Credit still owed moves to the new price. Charges already paid off,
+          // and every cash and Maya sale, keep what they were sold at.
+          const { saleIds } = unpaidRepricing(id, price, s.customers, s.sales, s.payments)
+          if (saleIds.size === 0) return { products }
+          return {
+            products,
+            sales: s.sales.map((sale) => {
+              if (!saleIds.has(sale.id)) return sale
+              const items = sale.items.map((line) =>
+                line.productId === id ? { ...line, unitPrice: price } : line,
+              )
+              const total = round2(items.reduce((sum, i) => sum + i.qty * i.unitPrice, 0))
+              return { ...sale, items, total }
+            }),
+          }
+        }),
 
       deleteProduct: (id) =>
         set((s) => ({

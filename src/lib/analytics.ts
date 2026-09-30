@@ -262,6 +262,55 @@ export function outstandingCharges(
     .filter((row) => row.due > 0.001)
 }
 
+export interface Repricing {
+  /** The credit sales whose lines for the product move to the new price. */
+  saleIds: Set<ID>
+  /** How many customers those sales belong to. */
+  customers: number
+  /** How much what they owe goes up in total; negative when it goes down. */
+  change: number
+}
+
+/**
+ * Credit still owed follows the shelf price. Finds the credit sales holding a
+ * product at anything other than `price` that payments have not fully covered,
+ * part paid included. A charge already paid off keeps the price it was paid at.
+ */
+export function unpaidRepricing(
+  productId: ID,
+  price: number,
+  customers: Customer[],
+  sales: Sale[],
+  payments: Payment[],
+): Repricing {
+  const holding = new Map<ID, Sale>()
+  const owners = new Set<ID>()
+  for (const sale of sales) {
+    if (!isLive(sale) || sale.settlement !== 'credit' || !sale.customerId) continue
+    if (!sale.items.some((l) => l.productId === productId && l.unitPrice !== price)) continue
+    holding.set(sale.id, sale)
+    owners.add(sale.customerId)
+  }
+
+  const saleIds = new Set<ID>()
+  const affected = new Set<ID>()
+  let change = 0
+  for (const customer of customers) {
+    if (!owners.has(customer.id)) continue
+    for (const row of outstandingCharges(customer, sales, payments)) {
+      const sale = holding.get(row.id)
+      if (!sale) continue
+      saleIds.add(sale.id)
+      affected.add(customer.id)
+      for (const line of sale.items) {
+        if (line.productId === productId) change += line.qty * (price - line.unitPrice)
+      }
+    }
+  }
+
+  return { saleIds, customers: affected.size, change: Math.round(change * 100) / 100 }
+}
+
 export interface AppliedTo {
   chargeId: string
   kind: ChargeKind

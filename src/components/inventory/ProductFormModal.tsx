@@ -4,7 +4,7 @@ import { Button } from '../ui/Button'
 import { Field, NumberInput, TextInput } from '../ui/Field'
 import { useStore } from '../../store/useStore'
 import { toast } from '../ui/Toast'
-import { marginPct } from '../../lib/analytics'
+import { marginPct, unpaidRepricing } from '../../lib/analytics'
 import { useFormat } from '../../lib/useFormat'
 import type { Product } from '../../types'
 
@@ -42,6 +42,9 @@ export function ProductFormModal({
 }) {
   const fmt = useFormat()
   const products = useStore((s) => s.products)
+  const customers = useStore((s) => s.customers)
+  const sales = useStore((s) => s.sales)
+  const payments = useStore((s) => s.payments)
   const defaultReorderLevel = useStore((s) => s.settings.defaultReorderLevel)
   const addProduct = useStore((s) => s.addProduct)
   const updateProduct = useStore((s) => s.updateProduct)
@@ -77,6 +80,16 @@ export function ProductFormModal({
 
   const cost = Number(form.cost) || 0
   const price = Number(form.price) || 0
+
+  // Credit still owed for this product moves to the price saved here.
+  const repricing = useMemo(
+    () =>
+      product && price > 0
+        ? unpaidRepricing(product.id, price, customers, sales, payments)
+        : null,
+    [product, price, customers, sales, payments],
+  )
+  const repriced = repricing?.saleIds.size ?? 0
 
   function validate(): boolean {
     const next: Partial<Record<keyof FormState, string>> = {}
@@ -118,7 +131,11 @@ export function ProductFormModal({
       // Stock moves through restock and adjustment, never rewritten here.
       const { stock: _ignored, ...rest } = payload
       updateProduct(product.id, rest)
-      toast.success(`${payload.name} updated.`)
+      toast.success(
+        repriced > 0
+          ? `${payload.name} updated, and ${repriced} unpaid credit ${repriced === 1 ? 'charge' : 'charges'} moved to ${fmt.money(price)}.`
+          : `${payload.name} updated.`,
+      )
     } else {
       addProduct(payload)
       toast.success(`${payload.name} added.`)
@@ -133,7 +150,7 @@ export function ProductFormModal({
       title={product ? 'Edit product' : 'Add product'}
       description={
         product
-          ? 'Changes apply from now on. Past sales keep the price they were sold at.'
+          ? 'Past sales keep the price they were sold at, except credit not yet paid, which follows the price here.'
           : 'Add what you sell, and how many you have right now.'
       }
       footer={
@@ -258,6 +275,19 @@ export function ProductFormModal({
             />
           )}
         </Field>
+
+        {repricing && repriced > 0 ? (
+          <div className="rounded-lg border border-line bg-surface-2 px-3.5 py-2.5 sm:col-span-2">
+            <p className="text-[12.5px] leading-relaxed text-ink">
+              {repriced} unpaid credit {repriced === 1 ? 'charge' : 'charges'}
+              {repricing.customers > 1 ? ` across ${repricing.customers} customers` : ''} will
+              move to <span className="tnum font-semibold">{fmt.money(price)}</span>. What{' '}
+              {repricing.customers > 1 ? 'they owe' : 'the customer owes'} goes{' '}
+              {repricing.change >= 0 ? 'up' : 'down'} by{' '}
+              <span className="tnum font-semibold">{fmt.money(Math.abs(repricing.change))}</span>.
+            </p>
+          </div>
+        ) : null}
       </div>
     </Modal>
   )
