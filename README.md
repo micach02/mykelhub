@@ -229,8 +229,10 @@ not US Legal (8.5 × 14in), which would leave a blank strip at the foot.
 The ledger's **Download PDF** produces a statement on long bond. It lists **only what
 is still unpaid** — not the whole history — because a statement exists to be
 settled, and a customer does not need to re-read months of paid entries to find
-what they owe. The part-paid charge shows its remainder. Totals charged and
-paid to date stay in the header as context.
+what they owe. Each item is its own row — date, what was taken, price per unit,
+amount due — with a charge's items grouped under one date, and the part-paid
+charge ends with a "Less part paid" row so the rows add up to the balance.
+Totals charged and paid to date stay in the header as context.
 
 **Download all statements** on the Credit page puts one statement per customer
 who owes into a single PDF, each starting on its own page, biggest debt first —

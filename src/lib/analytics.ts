@@ -230,6 +230,8 @@ export interface OutstandingCharge {
   paid: number
   /** What is still owed on it. */
   due: number
+  /** The goods on it, line by line. Empty for parking. */
+  items: Array<{ qty: number; name: string; unitPrice: number }>
 }
 
 /**
@@ -258,6 +260,11 @@ export function outstandingCharges(
       amount: charge.amount,
       paid: covered[i],
       due: charge.amount - covered[i],
+      items: (charge.sale?.items ?? []).map((line) => ({
+        qty: line.qty,
+        name: line.name,
+        unitPrice: line.unitPrice,
+      })),
     }))
     .filter((row) => row.due > 0.001)
 }

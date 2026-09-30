@@ -360,21 +360,67 @@ async function renderStatement(
   )
   y += 6
 
+  // One row per item, so each has its own price per unit. A charge's date
+  // heads its first row and only its last row is ruled off, so the lines of
+  // one charge read together. A part-paid charge ends with what was paid, so
+  // its rows add up to what is still due.
+  const body: RowInput[] = []
+  const endsCharge = new Set<number>()
+  for (const row of outstanding) {
+    // Parking has no items: it is one month at the monthly rate.
+    const lines =
+      row.items.length > 0
+        ? row.items.map((item) => ({
+            label: `${item.qty} x ${item.name}`,
+            unit: money(item.unitPrice),
+            amount: item.qty * item.unitPrice,
+          }))
+        : [
+            {
+              label: row.description,
+              unit: row.kind === 'parking' ? money(row.amount) : '',
+              amount: row.amount,
+            },
+          ]
+    lines.forEach((line, n) => {
+      body.push([n === 0 ? date(row.at) : '', line.label, line.unit, money(line.amount)])
+    })
+    if (row.paid > 0.001) {
+      const muted = { fontStyle: 'italic' as const, textColor: 90 }
+      body.push([
+        '',
+        { content: 'Less part paid', styles: muted },
+        '',
+        { content: `- ${money(row.paid)}`, styles: muted },
+      ])
+    }
+    endsCharge.add(body.length - 1)
+  }
+
+  // Column styles only reach body cells, so headings and the total are
+  // right-aligned here to sit over their figures.
+  const right = { halign: 'right' as const }
   autoTable(doc, {
     startY: y,
     margin: { left: M, right: M, bottom: 18 },
-    head: [['Date', 'Still unpaid', 'Charge', 'Part paid', 'Amount due']],
+    head: [
+      [
+        'Date',
+        'Still unpaid',
+        { content: 'Price per unit', styles: right },
+        { content: 'Amount due', styles: right },
+      ],
+    ],
     body:
-      outstanding.length > 0
-        ? outstanding.map((row) => [
-            date(row.at),
-            (row.kind === 'parking' ? '[Parking] ' : '') + row.description,
-            money(row.amount),
-            row.paid > 0.001 ? money(row.paid) : '',
-            money(row.due),
-          ])
-        : [['', 'Nothing outstanding. This account is fully settled.', '', '', '']],
-    foot: [['Total due', '', '', '', money(account.balance)]],
+      body.length > 0
+        ? body
+        : [[{ content: 'Nothing outstanding. This account is fully settled.', colSpan: 4 }]],
+    foot: [
+      [
+        { content: 'Total due', colSpan: 3 },
+        { content: money(account.balance), styles: right },
+      ],
+    ],
     theme: 'plain',
     styles: { font: 'helvetica', fontSize: 8.5, cellPadding: 1.6, textColor: 20 },
     headStyles: {
@@ -393,11 +439,15 @@ async function renderStatement(
     },
     bodyStyles: { lineWidth: { bottom: 0.1 }, lineColor: 200 },
     columnStyles: {
-      0: { cellWidth: 24 },
+      0: { cellWidth: 26 },
       1: { cellWidth: 'auto' },
-      2: { cellWidth: 26, halign: 'right' },
-      3: { cellWidth: 24, halign: 'right' },
-      4: { cellWidth: 30, halign: 'right' },
+      2: { cellWidth: 32, halign: 'right' },
+      3: { cellWidth: 32, halign: 'right' },
+    },
+    didParseCell: (data) => {
+      if (data.section === 'body' && !endsCharge.has(data.row.index)) {
+        data.cell.styles.lineWidth = 0
+      }
     },
   })
 
