@@ -660,8 +660,11 @@ export function productPerformance(sales: Sale[]): ProductPerformance[] {
   for (const sale of sales) {
     if (!isLive(sale)) continue
     for (const item of sale.items) {
-      const row = map.get(item.productId) ?? {
-        productId: item.productId,
+      // Each item typed in by hand has its own made-up id, so the same thing
+      // sold twice is put together by its name instead.
+      const key = item.custom ? `custom:${item.name.trim().toLowerCase()}` : item.productId
+      const row = map.get(key) ?? {
+        productId: key,
         name: item.name,
         units: 0,
         revenue: 0,
@@ -670,7 +673,7 @@ export function productPerformance(sales: Sale[]): ProductPerformance[] {
       row.units += item.qty
       row.revenue += item.qty * item.unitPrice
       row.profit += item.qty * (item.unitPrice - item.unitCost)
-      map.set(item.productId, row)
+      map.set(key, row)
     }
   }
 
@@ -690,7 +693,9 @@ export function categoryPerformance(sales: Sale[], products: Product[]): Categor
   for (const sale of sales) {
     if (!isLive(sale)) continue
     for (const item of sale.items) {
-      const category = categoryOf.get(item.productId) ?? 'Uncategorized'
+      const category = item.custom
+        ? 'Not in inventory'
+        : (categoryOf.get(item.productId) ?? 'Uncategorized')
       const row = map.get(category) ?? { category, revenue: 0, units: 0 }
       row.revenue += item.qty * item.unitPrice
       row.units += item.qty

@@ -5,6 +5,7 @@ import { Button } from '../ui/Button'
 import { Field, NumberInput, Select, TextInput } from '../ui/Field'
 import { SegmentedControl } from '../ui/SegmentedControl'
 import { toast } from '../ui/Toast'
+import { CustomItemForm } from './CustomItemForm'
 import { useStore } from '../../store/useStore'
 import { useFormat } from '../../lib/useFormat'
 import { buildAccounts, vaultBalance } from '../../lib/analytics'
@@ -88,7 +89,8 @@ export function RecordSaleModal({
   // drops below zero and the next restock or count settles it.
   const onCredit = settlement === 'credit'
   const stockOf = (productId: ID) => products.find((p) => p.id === productId)?.stock ?? 0
-  const overStock = lines.find((l) => l.qty > stockOf(l.productId))
+  // Items typed in by hand are not on the shelf, so no count holds them back.
+  const overStock = lines.find((l) => !l.custom && l.qty > stockOf(l.productId))
 
   function addLine(productId: ID) {
     const product = products.find((p) => p.id === productId)
@@ -120,7 +122,8 @@ export function RecordSaleModal({
   }
 
   function setQty(productId: ID, qty: number) {
-    const capped = onCredit ? Math.max(1, qty) : Math.max(1, Math.min(qty, stockOf(productId)))
+    const unlimited = onCredit || lines.find((l) => l.productId === productId)?.custom
+    const capped = unlimited ? Math.max(1, qty) : Math.max(1, Math.min(qty, stockOf(productId)))
     setLines((current) =>
       current.map((l) => (l.productId === productId ? { ...l, qty: capped } : l)),
     )
@@ -201,7 +204,7 @@ export function RecordSaleModal({
 
           {products.length === 0 ? (
             <p className="mt-3 rounded-lg border border-line bg-surface-2 px-4 py-6 text-center text-[13px] text-ink-2">
-              No products yet. Add them in Inventory first.
+              No products yet. Add them in Inventory, or add an item not in inventory below.
             </p>
           ) : (
             <div className="mt-2 flex max-h-44 flex-wrap content-start gap-1.5 overflow-y-auto">
@@ -241,12 +244,17 @@ export function RecordSaleModal({
               ) : null}
             </div>
           )}
+
+          <div className="mt-2">
+            <CustomItemForm onAdd={(item) => setLines((current) => [...current, item])} />
+          </div>
         </div>
 
         {lines.length > 0 ? (
           <ul className="divide-y divide-line rounded-lg border border-line">
             {lines.map((line) => {
               const stock = stockOf(line.productId)
+              const short = !line.custom && line.qty > stock
               return (
                 <li key={line.productId} className="flex items-center gap-2 px-3 py-2">
                   <span className="min-w-0 flex-1">
@@ -254,17 +262,16 @@ export function RecordSaleModal({
                       {line.name}
                     </span>
                     <span
-                      className={cn(
-                        'tnum text-[11.5px]',
-                        line.qty > stock ? 'text-critical' : 'text-muted',
-                      )}
+                      className={cn('tnum text-[11.5px]', short ? 'text-critical' : 'text-muted')}
                     >
                       {fmt.money(line.unitPrice)} each,{' '}
-                      {stock <= 0
-                        ? 'out of stock'
-                        : line.qty > stock
-                          ? `only ${stock} left`
-                          : `${stock} left`}
+                      {line.custom
+                        ? 'not in inventory'
+                        : stock <= 0
+                          ? 'out of stock'
+                          : short
+                            ? `only ${stock} left`
+                            : `${stock} left`}
                     </span>
                   </span>
                   <span className="flex items-center gap-1">
@@ -281,7 +288,7 @@ export function RecordSaleModal({
                     </span>
                     <button
                       onClick={() => setQty(line.productId, line.qty + 1)}
-                      disabled={!onCredit && line.qty >= stock}
+                      disabled={!onCredit && !line.custom && line.qty >= stock}
                       aria-label={`More ${line.name}`}
                       className="grid size-6 place-items-center rounded border border-line text-ink-2 hover:bg-surface-2 disabled:opacity-40"
                     >

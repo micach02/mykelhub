@@ -4,6 +4,7 @@ import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Field, Select, TextInput } from '../ui/Field'
 import { toast } from '../ui/Toast'
+import { CustomItemForm } from '../sales/CustomItemForm'
 import { useStore } from '../../store/useStore'
 import { useFormat } from '../../lib/useFormat'
 import { cn, dayKey } from '../../lib/utils'
@@ -122,7 +123,8 @@ export function EditChargeModal({ sale, onClose }: { sale: Sale | null; onClose:
     // A price changed here stays put when the shelf price changes. Typed back
     // to the shelf price, the line follows the shelf again.
     const items = lines.map((line) => {
-      if (!repriced.has(line.productId)) return line
+      // An item not in inventory has no shelf price to follow.
+      if (line.custom || !repriced.has(line.productId)) return line
       const { priceSetByHand: _was, ...rest } = line
       return line.unitPrice === shelfPrice(line.productId)
         ? rest
@@ -187,6 +189,12 @@ export function EditChargeModal({ sale, onClose }: { sale: Sale | null; onClose:
                       )}
                     />
                     <span>each</span>
+                    {line.custom ? (
+                      <>
+                        <span aria-hidden>·</span>
+                        <span>not in inventory</span>
+                      </>
+                    ) : null}
                     {shelf !== undefined && line.unitPrice !== shelf ? (
                       <>
                         <span aria-hidden>·</span>
@@ -271,6 +279,14 @@ export function EditChargeModal({ sale, onClose }: { sale: Sale | null; onClose:
               ))}
             </div>
           ) : null}
+          <div className="mt-2">
+            <CustomItemForm
+              onAdd={(item) => {
+                setLines((cur) => [...cur, item])
+                setPrices((cur) => ({ ...cur, [item.productId]: String(item.unitPrice) }))
+              }}
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

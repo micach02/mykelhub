@@ -51,6 +51,12 @@ export interface SaleItem {
    * price when it changes; this line keeps the price it was given.
    */
   priceSetByHand?: boolean
+  /**
+   * Something not in Inventory, typed in with its own name and price. Its
+   * productId is made up for it, so it matches no product and never moves
+   * stock. Its cost is its price: no profit is counted on it.
+   */
+  custom?: boolean
 }
 
 /** How a sale was settled. `credit` means it went on the customer's account. */

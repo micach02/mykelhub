@@ -291,8 +291,9 @@ export const useStore = create<StoreState>()(
             const line = items.find((i) => i.productId === p.id)
             return line ? { ...p, stock: p.stock - line.qty } : p
           }),
+          // Items typed in by hand are not on the shelf, so they move no stock.
           movements: [
-            ...items.map<StockMovement>((line) => ({
+            ...items.filter((line) => !line.custom).map<StockMovement>((line) => ({
               id: uid('mov_'),
               productId: line.productId,
               type: 'out',
@@ -348,7 +349,7 @@ export const useStore = create<StoreState>()(
             return line ? { ...p, stock: p.stock + line.qty } : p
           }),
           movements: [
-            ...sale.items.map<StockMovement>((line) => ({
+            ...sale.items.filter((line) => !line.custom).map<StockMovement>((line) => ({
               id: uid('mov_'),
               productId: line.productId,
               type: 'in',
@@ -385,10 +386,15 @@ export const useStore = create<StoreState>()(
         const editedAt = new Date().toISOString()
 
         // What the shelf owes back, per product, comparing before with after.
+        // Items typed in by hand were never on the shelf.
         const before = new Map<ID, number>()
-        for (const line of sale.items) before.set(line.productId, (before.get(line.productId) ?? 0) + line.qty)
+        for (const line of sale.items) {
+          if (!line.custom) before.set(line.productId, (before.get(line.productId) ?? 0) + line.qty)
+        }
         const after = new Map<ID, number>()
-        for (const line of items) after.set(line.productId, (after.get(line.productId) ?? 0) + line.qty)
+        for (const line of items) {
+          if (!line.custom) after.set(line.productId, (after.get(line.productId) ?? 0) + line.qty)
+        }
 
         const deltas = new Map<ID, number>()
         for (const productId of new Set([...before.keys(), ...after.keys()])) {
