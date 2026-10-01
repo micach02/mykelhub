@@ -10,6 +10,7 @@ import { SegmentedControl } from '../components/ui/SegmentedControl'
 import { Table, TableWrap, Td, Th, Tr } from '../components/ui/Table'
 import { Badge } from '../components/ui/Badge'
 import { EmptyState } from '../components/ui/EmptyState'
+import { Pagination, usePagination } from '../components/ui/Pagination'
 import { StatTile } from '../components/ui/StatTile'
 import { ConfirmDialog } from '../components/ui/Modal'
 import { toast } from '../components/ui/Toast'
@@ -32,7 +33,7 @@ import {
 } from '../lib/analytics'
 import { downloadAllStatementsPdf } from '../lib/pdf'
 import { useDocumentMeta } from '../lib/useDocumentMeta'
-import { downloadCsv, startOfDay } from '../lib/utils'
+import { downloadCsv, plural, startOfDay } from '../lib/utils'
 import type { Customer, Payment } from '../types'
 
 type Filter = 'owing' | 'all' | 'overdue' | 'settled'
@@ -116,6 +117,8 @@ export function Credit() {
       return accB.balance - accA.balance
     })
   }, [customers, accounts, query, filter, sort])
+
+  const pager = usePagination(rows, 25, [query, filter, sort])
 
   /** One PDF holding a statement for everyone who owes something. */
   async function downloadEveryStatement() {
@@ -251,14 +254,14 @@ export function Credit() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatTile
           label="Total outstanding"
           value={fmt.money(summary.outstanding)}
           deltaLabel={
             summary.parkingOwed > 0
               ? `${fmt.money(summary.parkingOwed)} of it is parking`
-              : `${summary.owingCount} customers owe you`
+              : `${plural(summary.owingCount, 'customer')} ${summary.owingCount === 1 ? 'owes' : 'owe'} you`
           }
         />
         <StatTile
@@ -267,7 +270,7 @@ export function Credit() {
           deltaLabel={
             summary.overdueCount === 0
               ? 'nothing overdue'
-              : `${summary.overdueCount} customers, still unpaid`
+              : `${plural(summary.overdueCount, 'customer')}, still unpaid`
           }
         />
         <StatTile
@@ -293,7 +296,7 @@ export function Credit() {
                   id: a.bucket,
                   label: a.label,
                   value: a.amount,
-                  meta: `${a.customers} customers`,
+                  meta: plural(a.customers, 'customer'),
                 }))}
               formatValue={fmt.money}
               emptyMessage="Nothing owed right now. Everyone is settled."
@@ -309,7 +312,7 @@ export function Credit() {
                 id: a.customerId,
                 label: a.name,
                 value: a.balance,
-                meta: a.daysOutstanding > 0 ? `${a.daysOutstanding} days` : 'just today',
+                meta: a.daysOutstanding > 0 ? plural(a.daysOutstanding, 'day') : 'just today',
               }))}
               formatValue={fmt.money}
               onSelect={(id) => {
@@ -352,7 +355,7 @@ export function Credit() {
             <option value="age">Oldest first</option>
             <option value="name">Name (A&ndash;Z)</option>
           </Select>
-          <p className="text-[12.5px] text-muted lg:ml-auto">{rows.length} customers</p>
+          <p className="text-[12.5px] text-muted lg:ml-auto">{plural(rows.length, 'customer')}</p>
         </div>
 
         {rows.length === 0 ? (
@@ -387,14 +390,14 @@ export function Credit() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((c) => {
+                {pager.visible.map((c) => {
                   const account = accounts.get(c.id)!
                   const bucket = ageBucket(account.daysOutstanding)
                   return (
                     <Tr key={c.id} onClick={() => setLedgerFor(c)}>
                       <Td>
                         <span className="font-medium">{c.name}</span>
-                        <span className="block text-[12px] text-muted">
+                        <span className="block text-[12px] whitespace-nowrap text-muted">
                           {c.phone || 'No number'}
                         </span>
                       </Td>
@@ -405,7 +408,7 @@ export function Credit() {
                               {fmt.money(account.balance)}
                             </span>
                             {account.parkingOwed > 0 && account.goodsOwed > 0 ? (
-                              <span className="block text-[11px] text-muted">
+                              <span className="block text-[11px] whitespace-nowrap text-muted">
                                 {fmt.money(account.goodsOwed)} goods +{' '}
                                 {fmt.money(account.parkingOwed)} parking
                               </span>
@@ -500,6 +503,7 @@ export function Credit() {
             </Table>
           </TableWrap>
         )}
+        <Pagination {...pager} onPage={pager.setPage} noun="customer" />
       </Card>
 
       <CustomerFormModal

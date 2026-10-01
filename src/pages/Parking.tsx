@@ -18,7 +18,7 @@ import { PaymentReceiptModal } from '../components/credit/PaymentReceiptModal'
 import { useStore } from '../store/useStore'
 import { useFormat } from '../lib/useFormat'
 import { buildAccounts, parkingSummary, paymentsBetween, type Account } from '../lib/analytics'
-import { downloadCsv, startOfDay } from '../lib/utils'
+import { downloadCsv, plural, startOfDay } from '../lib/utils'
 import { paymentMethodLabel } from '../lib/labels'
 import type { Customer, Payment } from '../types'
 
@@ -118,7 +118,7 @@ export function Parking() {
         }
       }),
     )
-    toast.success(`Exported ${rows.length} parkers.`)
+    toast.success(`Exported ${plural(rows.length, 'parker')}.`)
   }
 
   if (parkers.length === 0) {
@@ -177,7 +177,7 @@ export function Parking() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatTile
           label="Expected each month"
           value={fmt.money(summary.monthlyExpected)}
@@ -249,7 +249,7 @@ export function Parking() {
               { value: 'stopped', label: 'Stopped' },
             ]}
           />
-          <p className="text-[12.5px] text-muted lg:ml-auto">{rows.length} parkers</p>
+          <p className="text-[12.5px] text-muted lg:ml-auto">{plural(rows.length, 'parker')}</p>
         </div>
 
         {rows.length === 0 ? (
@@ -301,7 +301,7 @@ export function Parking() {
                       <Td className="text-ink-2">
                         <span className="text-[12.5px]">{monthLabel(a.parkingPaidThrough)}</span>
                         <span className="block text-[11.5px] text-muted">
-                          {a.parkingCovered} of {a.parkingBilled} months
+                          {a.parkingCovered} of {plural(a.parkingBilled, 'month')}
                         </span>
                       </Td>
                       <Td>

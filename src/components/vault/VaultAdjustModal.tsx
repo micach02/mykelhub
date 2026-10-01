@@ -92,7 +92,7 @@ export function VaultAdjustModal({ open, onClose }: { open: boolean; onClose: ()
           ]}
         />
 
-        <div className="flex items-center justify-between rounded-lg border border-line bg-surface-2 px-4 py-3">
+        <div className="flex items-center justify-between rounded-2xl bg-surface shadow-(--shadow-inset-sm) px-4 py-3">
           <div>
             <p className="text-[12px] text-ink-2">In the vault now</p>
             <p className="tnum text-lg font-semibold text-ink">{fmt.money(current)}</p>

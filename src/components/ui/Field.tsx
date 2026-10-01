@@ -7,10 +7,18 @@ import type {
 import { useId } from 'react'
 import { cn } from '../../lib/utils'
 
+// Soft UI: a field is a well pressed into the page, with no border.
 const CONTROL =
-  'w-full rounded-lg border border-line bg-surface px-3 text-sm text-ink placeholder:text-muted ' +
-  'transition-colors hover:border-line-strong focus:border-brand focus:outline-none ' +
-  'focus:ring-2 focus:ring-[var(--brand)]/25 disabled:opacity-50'
+  'rounded-xl border-0 bg-surface px-3.5 text-sm text-ink placeholder:text-muted ' +
+  'shadow-(--shadow-inset-sm) transition-shadow ' +
+  'focus:ring-2 focus:ring-brand/45 focus:outline-none disabled:opacity-50'
+
+/**
+ * Controls fill their field unless the caller sets a width. Classes are only
+ * joined, not merged, so a caller's `w-auto` beside a built-in `w-full` would
+ * lose, and toolbars would stretch one control across the whole row.
+ */
+const width = (className?: string) => (/(^|\s)w-/.test(className ?? '') ? '' : 'w-full')
 
 export function Field({
   label,
@@ -48,7 +56,7 @@ export function TextInput({
   className,
   ...rest
 }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cn(CONTROL, 'h-9.5', className)} {...rest} />
+  return <input className={cn(CONTROL, width(className), 'h-10', className)} {...rest} />
 }
 
 export function NumberInput({
@@ -59,7 +67,7 @@ export function NumberInput({
     <input
       type="number"
       inputMode="decimal"
-      className={cn(CONTROL, 'tnum h-9.5', className)}
+      className={cn(CONTROL, width(className), 'tnum h-10', className)}
       {...rest}
     />
   )
@@ -71,7 +79,10 @@ export function Select({
   ...rest
 }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
-    <select className={cn(CONTROL, 'h-9.5 cursor-pointer pr-8', className)} {...rest}>
+    <select
+      className={cn(CONTROL, width(className), 'h-10 cursor-pointer pr-8', className)}
+      {...rest}
+    >
       {children}
     </select>
   )
@@ -81,5 +92,10 @@ export function Textarea({
   className,
   ...rest
 }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea className={cn(CONTROL, 'min-h-20 py-2 leading-relaxed', className)} {...rest} />
+  return (
+    <textarea
+      className={cn(CONTROL, width(className), 'min-h-20 py-2 leading-relaxed', className)}
+      {...rest}
+    />
+  )
 }

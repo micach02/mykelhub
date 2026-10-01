@@ -94,7 +94,7 @@ export function PaymentModal({
       }
     >
       <div className="flex flex-col gap-4">
-        <div className="rounded-lg border border-line bg-surface-2 px-4 py-3">
+        <div className="rounded-2xl bg-surface shadow-(--shadow-inset-sm) px-4 py-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[12px] text-ink-2">Currently owes</p>

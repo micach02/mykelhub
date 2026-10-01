@@ -11,7 +11,7 @@ import type { Product } from '../../types'
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-lg border border-line bg-surface-2 px-3.5 py-3">
+    <div className="rounded-2xl bg-surface shadow-(--shadow-inset-sm) px-3.5 py-3">
       <p className="text-[12px] text-ink-2">{label}</p>
       <p className="tnum mt-1 text-[17px] font-semibold text-ink">{value}</p>
       {hint ? <p className="mt-0.5 text-[11.5px] text-muted">{hint}</p> : null}
@@ -111,7 +111,7 @@ export function ProductDetailModal({
 
       <h3 className="mt-6 mb-2 text-[13px] font-semibold text-ink">Stock movements</h3>
       {history.length === 0 ? (
-        <p className="rounded-lg border border-line bg-surface-2 px-4 py-6 text-center text-[13px] text-ink-2">
+        <p className="rounded-2xl bg-surface shadow-(--shadow-inset-sm) px-4 py-6 text-center text-[13px] text-ink-2">
           No movements recorded for this product yet.
         </p>
       ) : (

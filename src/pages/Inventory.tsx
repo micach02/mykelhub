@@ -19,7 +19,8 @@ import { SearchInput } from '../components/ui/SearchInput'
 import { Select } from '../components/ui/Field'
 import { SegmentedControl } from '../components/ui/SegmentedControl'
 import { Table, TableWrap, Td, Th, Tr } from '../components/ui/Table'
-import { StockBadge } from '../components/ui/Badge'
+import { Badge, StockBadge } from '../components/ui/Badge'
+import { Pagination, usePagination } from '../components/ui/Pagination'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ConfirmDialog } from '../components/ui/Modal'
 import { StatTile } from '../components/ui/StatTile'
@@ -30,13 +31,17 @@ import { ProductDetailModal } from '../components/inventory/ProductDetailModal'
 import { useStore } from '../store/useStore'
 import { useFormat } from '../lib/useFormat'
 import { inventoryValue, lowStock, marginPct, stockLevel } from '../lib/analytics'
-import { downloadCsv } from '../lib/utils'
+import { downloadCsv, plural } from '../lib/utils'
 import { downloadPriceListPdf, downloadRestockListPdf } from '../lib/pdf'
 import { useDocumentMeta } from '../lib/useDocumentMeta'
 import type { Product } from '../types'
 
 type SortKey = 'name' | 'category' | 'stock' | 'price' | 'value'
 type StockFilter = 'all' | 'low' | 'out'
+/** Archived products are kept for their history but sold no more. */
+type View = 'active' | 'archived'
+
+const PAGE_SIZE = 25
 
 export function Inventory() {
   const fmt = useFormat()
@@ -48,7 +53,7 @@ export function Inventory() {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('all')
   const [stockFilter, setStockFilter] = useState<StockFilter>('all')
-  const [showArchived, setShowArchived] = useState(false)
+  const [view, setView] = useState<View>('active')
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({
     key: 'name',
     dir: 'asc',
@@ -66,7 +71,10 @@ export function Inventory() {
   // Deep links from the topbar search and the dashboard alerts.
   useEffect(() => {
     const filter = params.get('filter')
-    if (filter === 'low') setStockFilter('low')
+    if (filter === 'low') {
+      setView('active')
+      setStockFilter('low')
+    }
 
     const focus = params.get('focus')
     if (focus) {
@@ -84,9 +92,10 @@ export function Inventory() {
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
     const filtered = products.filter((p) => {
-      if (!showArchived && p.status === 'archived') return false
+      if ((p.status === 'archived') !== (view === 'archived')) return false
       if (category !== 'all' && p.category !== category) return false
-      if (stockFilter !== 'all') {
+      // Stock levels only matter for what is still sold.
+      if (view === 'active' && stockFilter !== 'all') {
         const level = stockLevel(p)
         if (stockFilter === 'low' && level === 'ok') return false
         if (stockFilter === 'out' && level !== 'out') return false
@@ -110,7 +119,14 @@ export function Inventory() {
           return a.name.localeCompare(b.name) * direction
       }
     })
-  }, [products, query, category, stockFilter, showArchived, sort])
+  }, [products, query, category, stockFilter, view, sort])
+
+  const pager = usePagination(rows, PAGE_SIZE, [query, category, stockFilter, view, sort])
+  const archivedCount = useMemo(
+    () => products.filter((p) => p.status === 'archived').length,
+    [products],
+  )
+  const activeCount = products.length - archivedCount
 
   const value = useMemo(() => inventoryValue(products), [products])
   const restockList = useMemo(() => lowStock(products), [products])
@@ -119,6 +135,16 @@ export function Inventory() {
       restockList.reduce((sum, p) => sum + Math.max(p.reorderLevel * 2 - p.stock, 0) * p.cost, 0),
     [restockList],
   )
+
+  /** Archive or restore, and say where the product went. */
+  function setStatus(p: Product, next: Product['status']) {
+    setProductStatus(p.id, next)
+    toast.info(
+      next === 'archived'
+        ? `${p.name} archived. Find it under Archived.`
+        : `${p.name} is back in Active.`,
+    )
+  }
 
   const toggleSort = (key: SortKey) =>
     setSort((s) => ({ key, dir: s.key === key && s.dir === 'asc' ? 'desc' : 'asc' }))
@@ -148,7 +174,7 @@ export function Inventory() {
         })),
         meta,
       })
-      toast.success(`Price list for ${sellable.length} products downloaded.`)
+      toast.success(`Price list for ${plural(sellable.length, 'product')} downloaded.`)
     } catch {
       toast.error('The price list could not be prepared.')
     } finally {
@@ -175,7 +201,7 @@ export function Inventory() {
         })),
         meta,
       })
-      toast.success(`Restock list for ${restockList.length} products downloaded.`)
+      toast.success(`Restock list for ${plural(restockList.length, 'product')} downloaded.`)
     } catch {
       toast.error('The restock list could not be prepared.')
     } finally {
@@ -199,7 +225,7 @@ export function Inventory() {
         Status: p.status,
       })),
     )
-    toast.success(`Exported ${rows.length} products.`)
+    toast.success(`Exported ${plural(rows.length, 'product')}.`)
   }
 
   return (
@@ -235,11 +261,11 @@ export function Inventory() {
         }
       />
 
-      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatTile
           label="Tied up in stock"
           value={fmt.money(value.atCost)}
-          deltaLabel={`${value.skus} products`}
+          deltaLabel={plural(value.skus, 'product')}
         />
         <StatTile
           label="Worth if all sold"
@@ -264,10 +290,19 @@ export function Inventory() {
 
       <Card>
         <div className="flex flex-col gap-3 border-b border-line p-4 lg:flex-row lg:items-center">
+          <SegmentedControl
+            ariaLabel="Which products"
+            value={view}
+            onChange={setView}
+            segments={[
+              { value: 'active', label: `Active (${activeCount})` },
+              { value: 'archived', label: `Archived (${archivedCount})` },
+            ]}
+          />
           <SearchInput
             value={query}
             onChange={setQuery}
-            placeholder="Search a product"
+            placeholder={view === 'archived' ? 'Search archived products' : 'Search a product'}
             className="lg:max-w-xs lg:flex-1"
           />
           <div className="flex flex-wrap items-center gap-2">
@@ -284,30 +319,21 @@ export function Inventory() {
                 </option>
               ))}
             </Select>
-            <SegmentedControl
-              ariaLabel="Stock level"
-              size="sm"
-              value={stockFilter}
-              onChange={setStockFilter}
-              segments={[
-                { value: 'all', label: 'All' },
-                { value: 'low', label: 'Running low' },
-                { value: 'out', label: 'Out' },
-              ]}
-            />
-            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-line px-3 py-2 text-[13px] text-ink-2 select-none hover:bg-surface-2">
-              <input
-                type="checkbox"
-                checked={showArchived}
-                onChange={(e) => setShowArchived(e.target.checked)}
-                className="size-3.5 accent-brand"
+            {view === 'active' ? (
+              <SegmentedControl
+                ariaLabel="Stock level"
+                size="sm"
+                value={stockFilter}
+                onChange={setStockFilter}
+                segments={[
+                  { value: 'all', label: 'All' },
+                  { value: 'low', label: 'Running low' },
+                  { value: 'out', label: 'Out' },
+                ]}
               />
-              Archived
-            </label>
+            ) : null}
           </div>
-          <p className="text-[12.5px] text-muted lg:ml-auto">
-            {rows.length} of {products.length}
-          </p>
+          <p className="text-[12.5px] text-muted lg:ml-auto">{plural(rows.length, 'product')}</p>
         </div>
 
         {rows.length === 0 ? (
@@ -327,6 +353,17 @@ export function Inventory() {
                 >
                   <Plus size={15} aria-hidden />
                   Add product
+                </Button>
+              }
+            />
+          ) : view === 'archived' && archivedCount === 0 ? (
+            <EmptyState
+              title="Nothing archived"
+              message="Archive a product you no longer sell. It leaves sales, the price list and the restock list, but keeps its history, and you can restore it here any time."
+              icon={<Archive size={20} aria-hidden />}
+              action={
+                <Button size="sm" onClick={() => setView('active')}>
+                  Back to active products
                 </Button>
               }
             />
@@ -372,11 +409,11 @@ export function Inventory() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((p) => (
+                {pager.visible.map((p) => (
                   <Tr key={p.id} onClick={() => setDetail(p)}>
-                    <Td className="font-medium">{p.name}</Td>
+                    <Td className="min-w-40 font-medium">{p.name}</Td>
                     <Td className="text-ink-2">{p.category}</Td>
-                    <Td align="right" numeric>
+                    <Td align="right" numeric className="whitespace-nowrap">
                       <span className="font-medium">{p.stock}</span>
                       <span className="text-muted"> {p.unit}</span>
                     </Td>
@@ -396,22 +433,35 @@ export function Inventory() {
                       {fmt.money(p.stock * p.cost)}
                     </Td>
                     <Td>
-                      <StockBadge level={stockLevel(p)} />
+                      {p.status === 'archived' ? (
+                        <Badge tone="neutral" icon={<Archive size={12} aria-hidden />}>
+                          Archived
+                        </Badge>
+                      ) : (
+                        <StockBadge level={stockLevel(p)} />
+                      )}
                     </Td>
                     <Td align="right">
                       <span
                         className="flex items-center justify-end gap-0.5"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Adjust stock for ${p.name}`}
-                          title="Adjust stock"
-                          onClick={() => setAdjusting(p)}
-                        >
-                          <SlidersHorizontal size={15} />
-                        </Button>
+                        {p.status === 'archived' ? (
+                          <Button size="sm" className="mr-1" onClick={() => setStatus(p, 'active')}>
+                            <ArchiveRestore size={14} aria-hidden />
+                            Restore
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Adjust stock for ${p.name}`}
+                            title="Adjust stock"
+                            onClick={() => setAdjusting(p)}
+                          >
+                            <SlidersHorizontal size={15} />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -424,27 +474,17 @@ export function Inventory() {
                         >
                           <Pencil size={15} />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={
-                            p.status === 'active' ? `Archive ${p.name}` : `Restore ${p.name}`
-                          }
-                          title={p.status === 'active' ? 'Archive' : 'Restore'}
-                          onClick={() => {
-                            const next = p.status === 'active' ? 'archived' : 'active'
-                            setProductStatus(p.id, next)
-                            toast.info(
-                              `${p.name} ${next === 'archived' ? 'archived' : 'restored to active'}.`,
-                            )
-                          }}
-                        >
-                          {p.status === 'active' ? (
+                        {p.status === 'active' ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Archive ${p.name}`}
+                            title="Archive"
+                            onClick={() => setStatus(p, 'archived')}
+                          >
                             <Archive size={15} />
-                          ) : (
-                            <ArchiveRestore size={15} />
-                          )}
-                        </Button>
+                          </Button>
+                        ) : null}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -462,6 +502,7 @@ export function Inventory() {
             </Table>
           </TableWrap>
         )}
+        <Pagination {...pager} onPage={pager.setPage} noun="product" />
       </Card>
 
       <ProductFormModal

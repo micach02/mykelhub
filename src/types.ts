@@ -137,6 +137,11 @@ export interface StoreSnapshot {
 
 export type ThemePreference = 'light' | 'dark' | 'system'
 
+/** The look, separate from light or dark: either works in both. */
+export type UiStyle = 'futuristic' | 'soft'
+
+export const DEFAULT_UI_STYLE: UiStyle = 'futuristic'
+
 export interface Settings {
   storeName: string
   ownerName: string
@@ -150,4 +155,6 @@ export interface Settings {
   /** Money is collected on or before this day of the month. */
   collectionDay: number
   theme: ThemePreference
+  /** Missing on settings saved before styles existed; read it with a fallback. */
+  style?: UiStyle
 }

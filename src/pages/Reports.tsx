@@ -30,7 +30,7 @@ import {
   seriesByDay,
   totals,
 } from '../lib/analytics'
-import { addDays, downloadCsv, lastNDays, pctChange, startOfDay } from '../lib/utils'
+import { addDays, downloadCsv, lastNDays, pctChange, plural, startOfDay } from '../lib/utils'
 
 type RangeKey = '7' | '30' | '60'
 type Metric = 'revenue' | 'profit' | 'credit' | 'collected'
@@ -233,7 +233,7 @@ export function Reports() {
 
       {tab === 'sales' ? (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
             <StatTile
               label="Total sales"
               value={fmt.money(current.revenue)}
@@ -333,7 +333,7 @@ export function Reports() {
                     id: c.category,
                     label: c.category,
                     value: c.revenue,
-                    meta: `${c.units} items`,
+                    meta: plural(c.units, 'item'),
                   }))}
                   formatValue={fmt.money}
                   emptyMessage="No sales in this period."
@@ -407,11 +407,11 @@ export function Reports() {
 
       {tab === 'credit' ? (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
             <StatTile
               label="Total owed to you"
               value={fmt.money(accounts.reduce((s, a) => s + a.balance, 0))}
-              deltaLabel={`${owing.length} customers owe you`}
+              deltaLabel={`${plural(owing.length, 'customer')} ${owing.length === 1 ? 'owes' : 'owe'} you`}
             />
             <StatTile
               label="Over a month old"
@@ -420,7 +420,7 @@ export function Reports() {
                   .filter((a) => ageBucket(a.daysOutstanding) === 'overdue')
                   .reduce((s, a) => s + a.balance, 0),
               )}
-              deltaLabel={`${owing.filter((a) => ageBucket(a.daysOutstanding) === 'overdue').length} customers`}
+              deltaLabel={plural(owing.filter((a) => ageBucket(a.daysOutstanding) === 'overdue').length, 'customer')}
             />
             <StatTile
               label="Largest balance"
@@ -446,7 +446,7 @@ export function Reports() {
                     id: a.bucket,
                     label: a.label,
                     value: a.amount,
-                    meta: `${a.customers} customers`,
+                    meta: plural(a.customers, 'customer'),
                   }))}
                 formatValue={fmt.money}
                 emptyMessage="Nothing owed. Everyone is settled."
@@ -514,7 +514,7 @@ export function Reports() {
 
       {tab === 'parking' ? (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
             <StatTile
               label="Expected each month"
               value={fmt.money(parking.summary.monthlyExpected)}
@@ -617,11 +617,11 @@ export function Reports() {
 
       {tab === 'stock' ? (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
             <StatTile
               label="Tied up in stock"
               value={fmt.money(stock.atCost)}
-              deltaLabel={`${stock.skus} products`}
+              deltaLabel={plural(stock.skus, 'product')}
             />
             <StatTile
               label="Worth if all sold"

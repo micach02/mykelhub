@@ -67,7 +67,7 @@ export function CustomItemForm({ onAdd }: { onAdd: (item: SaleItem) => void }) {
   }
 
   return (
-    <div className="rounded-lg border border-line bg-surface-2 p-3">
+    <div className="rounded-2xl bg-surface shadow-(--shadow-inset-sm) p-3">
       <p className="mb-2 text-[12.5px] text-ink-2">
         Not in inventory: type what it is and its price. Stock is not touched.
       </p>

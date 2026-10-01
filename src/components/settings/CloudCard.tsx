@@ -169,7 +169,7 @@ export function CloudCard() {
           </>
         ) : !signedIn ? (
           <>
-            <div className="mb-4 rounded-lg border border-line bg-surface-2 px-4 py-3">
+            <div className="mb-4 rounded-2xl bg-surface shadow-(--shadow-inset-sm) px-4 py-3">
               <p className="text-[12px] text-ink-2">Project saved</p>
               <p className="text-[13px] font-medium break-all text-ink">
                 {readConfig()?.url ?? ''}
@@ -250,7 +250,7 @@ export function CloudCard() {
           </>
         ) : (
           <>
-            <div className="rounded-lg border border-line bg-surface-2 px-4 py-3">
+            <div className="rounded-2xl bg-surface shadow-(--shadow-inset-sm) px-4 py-3">
               <p className="flex items-center gap-2 text-[13px] font-medium text-ink">
                 <Cloud size={15} aria-hidden />
                 {email}

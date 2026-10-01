@@ -277,7 +277,7 @@ export function ProductFormModal({
         </Field>
 
         {repricing && (repriced > 0 || repricing.kept > 0) ? (
-          <div className="rounded-lg border border-line bg-surface-2 px-3.5 py-2.5 sm:col-span-2">
+          <div className="rounded-2xl bg-surface shadow-(--shadow-inset-sm) px-3.5 py-2.5 sm:col-span-2">
             <p className="text-[12.5px] leading-relaxed text-ink">
               {repriced > 0 ? (
                 <>

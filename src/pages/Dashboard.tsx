@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -7,7 +7,6 @@ import {
   Boxes,
   CarFront,
   NotebookPen,
-  Plus,
   TrendingUp,
   Wallet,
 } from 'lucide-react'
@@ -38,10 +37,44 @@ import {
   totals,
   vaultBalance,
 } from '../lib/analytics'
-import { addDays, lastNDays, pctChange, startOfDay } from '../lib/utils'
+import { addDays, lastNDays, pctChange, plural, startOfDay } from '../lib/utils'
 import type { Settlement } from '../types'
 
 type RangeKey = '7' | '30' | '60'
+
+function greeting(now = new Date()): string {
+  const hour = now.getHours()
+  return hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
+}
+
+/**
+ * Something that needs doing, and the button that does it. The colour stays
+ * on the icon, so three of these in a row do not shout.
+ */
+function Callout({
+  tone,
+  icon,
+  children,
+}: {
+  tone: 'critical' | 'warning'
+  icon: ReactNode
+  children: ReactNode
+}) {
+  const color = tone === 'critical' ? 'var(--status-critical)' : 'var(--status-warning)'
+  return (
+    <div
+      className="mt-5 flex flex-wrap items-center gap-3 rounded-3xl border border-(--edge) bg-surface px-4 py-3.5 shadow-(--shadow-raise)"
+    >
+      <span
+        className="grid size-10 shrink-0 place-items-center rounded-full shadow-(--shadow-inset-sm)"
+        style={{ color }}
+      >
+        {icon}
+      </span>
+      {children}
+    </div>
+  )
+}
 
 export function Dashboard() {
   const navigate = useNavigate()
@@ -102,6 +135,7 @@ export function Dashboard() {
 
   const stock = useMemo(() => inventoryValue(products), [products])
   const needsRestock = useMemo(() => lowStock(products), [products])
+  const soldOut = needsRestock.filter((p) => p.stock <= 0).length
   const { current, previous } = view
 
   if (products.length === 0 && customers.length === 0) {
@@ -153,7 +187,7 @@ export function Dashboard() {
   return (
     <>
       <PageHeader
-        title={`Good day, ${storeName}`}
+        title={`${greeting()}, ${storeName}`}
         subtitle={`The last ${days} days, compared with the ${days} days before.`}
         actions={
           <>
@@ -167,23 +201,15 @@ export function Dashboard() {
                 { value: '60', label: '60 days' },
               ]}
             />
-            <Button onClick={() => setSaleOpen('credit')}>
-              <NotebookPen size={15} aria-hidden />
-              Credit sale
-            </Button>
-            <Button variant="primary" onClick={() => setSaleOpen('cash')}>
-              <Plus size={16} aria-hidden />
-              Record sale
-            </Button>
           </>
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
         <StatTile
           label="Owed to you"
           value={fmt.money(credit.outstanding)}
-          deltaLabel={`${credit.owingCount} customers on credit`}
+          deltaLabel={`${plural(credit.owingCount, 'customer')} on credit`}
           icon={<NotebookPen size={16} aria-hidden />}
         />
         <StatTile
@@ -217,7 +243,7 @@ export function Dashboard() {
         <StatTile
           label="Stock value"
           value={fmt.money(stock.atCost)}
-          deltaLabel={`${fmt.number(stock.units)} items, ${stock.skus} products`}
+          deltaLabel={`${fmt.number(stock.units)} items, ${plural(stock.skus, 'product')}`}
           icon={<Boxes size={16} aria-hidden />}
         />
         <StatTile
@@ -229,17 +255,10 @@ export function Dashboard() {
       </div>
 
       {credit.overdue.length > 0 ? (
-        <div
-          className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3"
-          style={{
-            borderColor: 'color-mix(in srgb, var(--status-critical) 40%, transparent)',
-            background: 'color-mix(in srgb, var(--status-critical) 10%, transparent)',
-          }}
-        >
-          <AlertTriangle size={17} style={{ color: 'var(--status-critical)' }} aria-hidden />
-          <p className="flex-1 text-[13px] text-ink">
-            <span className="font-semibold">{credit.overdue.length} customers</span> have owed for
-            over a month, totalling{' '}
+        <Callout tone="critical" icon={<AlertTriangle size={16} aria-hidden />}>
+          <p className="min-w-56 flex-1 text-[13px] text-ink">
+            <span className="font-semibold">{plural(credit.overdue.length, 'customer')}</span>{' '}
+            {credit.overdue.length === 1 ? 'has' : 'have'} owed for over a month, totalling{' '}
             <span className="font-semibold">
               {fmt.money(credit.overdue.reduce((s, a) => s + a.balance, 0))}
             </span>
@@ -249,21 +268,14 @@ export function Dashboard() {
             See who owes
             <ArrowRight size={14} aria-hidden />
           </Button>
-        </div>
+        </Callout>
       ) : null}
 
       {parking.behind.length > 0 ? (
-        <div
-          className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3"
-          style={{
-            borderColor: 'color-mix(in srgb, var(--status-warning) 45%, transparent)',
-            background: 'color-mix(in srgb, var(--status-warning) 12%, transparent)',
-          }}
-        >
-          <CarFront size={17} style={{ color: 'var(--status-warning)' }} aria-hidden />
-          <p className="flex-1 text-[13px] text-ink">
-            <span className="font-semibold">{parking.behind.length} parkers</span> are behind on
-            their monthly fee, totalling{' '}
+        <Callout tone="warning" icon={<CarFront size={16} aria-hidden />}>
+          <p className="min-w-56 flex-1 text-[13px] text-ink">
+            <span className="font-semibold">{plural(parking.behind.length, 'parker')}</span>{' '}
+            {parking.behind.length === 1 ? 'is' : 'are'} behind on the monthly fee, totalling{' '}
             <span className="font-semibold">
               {fmt.money(parking.behind.reduce((s, a) => s + a.parkingOwed, 0))}
             </span>
@@ -273,29 +285,21 @@ export function Dashboard() {
             Collect parking
             <ArrowRight size={14} aria-hidden />
           </Button>
-        </div>
+        </Callout>
       ) : null}
 
       {needsRestock.length > 0 ? (
-        <div
-          className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3"
-          style={{
-            borderColor: 'color-mix(in srgb, var(--status-warning) 45%, transparent)',
-            background: 'color-mix(in srgb, var(--status-warning) 12%, transparent)',
-          }}
-        >
-          <AlertTriangle size={17} style={{ color: 'var(--status-warning)' }} aria-hidden />
-          <p className="flex-1 text-[13px] text-ink">
-            <span className="font-semibold">{needsRestock.length} products</span> are running low
-            {needsRestock.filter((p) => p.stock <= 0).length > 0
-              ? `, and ${needsRestock.filter((p) => p.stock <= 0).length} are already out.`
-              : '.'}
+        <Callout tone="warning" icon={<AlertTriangle size={16} aria-hidden />}>
+          <p className="min-w-56 flex-1 text-[13px] text-ink">
+            <span className="font-semibold">{plural(needsRestock.length, 'product')}</span>{' '}
+            {needsRestock.length === 1 ? 'is' : 'are'} running low
+            {soldOut > 0 ? `, and ${soldOut} ${soldOut === 1 ? 'is' : 'are'} already out.` : '.'}
           </p>
           <Button size="sm" onClick={() => navigate('/inventory?filter=low')}>
             See what to buy
             <ArrowRight size={14} aria-hidden />
           </Button>
-        </div>
+        </Callout>
       ) : null}
 
       <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
@@ -335,7 +339,7 @@ export function Dashboard() {
                 id: a.customerId,
                 label: a.name,
                 value: a.balance,
-                meta: a.daysOutstanding > 0 ? `${a.daysOutstanding} days` : 'just today',
+                meta: a.daysOutstanding > 0 ? plural(a.daysOutstanding, 'day') : 'just today',
               }))}
               formatValue={fmt.money}
               onSelect={(id) => navigate(`/credit?customer=${id}`)}
@@ -384,7 +388,7 @@ export function Dashboard() {
                     const customer = customers.find((c) => c.id === sale.customerId)
                     return (
                       <Tr key={sale.id} onClick={() => navigate(`/sales?open=${sale.id}`)}>
-                        <Td className="font-medium">{sale.reference}</Td>
+                        <Td className="font-medium whitespace-nowrap">{sale.reference}</Td>
                         <Td className="text-ink-2">
                           <span className="line-clamp-1 text-[12.5px]">
                             {sale.items.map((i) => `${i.qty} x ${i.name}`).join(', ')}
@@ -404,7 +408,9 @@ export function Dashboard() {
                         <Td align="right" numeric className="font-semibold">
                           {fmt.money(sale.total)}
                         </Td>
-                        <Td className="text-ink-2">{fmt.dateTime(sale.createdAt)}</Td>
+                        <Td className="whitespace-nowrap text-ink-2">
+                          {fmt.dateTime(sale.createdAt)}
+                        </Td>
                       </Tr>
                     )
                   })}

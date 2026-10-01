@@ -4,12 +4,13 @@ import {
   Banknote,
   Boxes,
   CarFront,
+  HardDrive,
   LayoutDashboard,
   NotebookPen,
   Settings as SettingsIcon,
   X,
 } from 'lucide-react'
-import { cn } from '../../lib/utils'
+import { cn, plural } from '../../lib/utils'
 import { useStore } from '../../store/useStore'
 import { ageBucket, buildAccounts, lowStock } from '../../lib/analytics'
 
@@ -53,22 +54,24 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
 
       <aside
         className={cn(
-          'no-print fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-line bg-surface transition-transform duration-200 lg:translate-x-0',
+          'no-print fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-(--edge) bg-surface shadow-[8px_0_24px_-12px_var(--neu-dark)] backdrop-blur-xl transition-transform duration-200 lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        <div className="flex h-14 items-center justify-between gap-2 border-b border-line px-4">
-          <div className="flex min-w-0 items-center gap-2.5">
+        <div className="flex h-16 items-center justify-between gap-2 px-4">
+          <div className="flex min-w-0 items-center gap-3">
             <span
-              className="grid size-8 shrink-0 place-items-center rounded-lg text-[15px] font-bold text-white"
-              style={{ background: 'var(--brand)' }}
+              className="font-display grid size-10 shrink-0 place-items-center rounded-2xl text-[16px] font-bold text-white shadow-(--shadow-primary)"
+              style={{ background: 'linear-gradient(135deg, var(--brand), var(--series-7))' }}
               aria-hidden
             >
               M
             </span>
             <div className="min-w-0">
-              <p className="truncate text-[14px] leading-tight font-semibold text-ink">MykelHub</p>
-              <p className="truncate text-[11px] text-muted">{storeName}</p>
+              <p className="truncate text-[15px] leading-tight font-semibold tracking-tight text-ink">
+                MykelHub
+              </p>
+              <p className="truncate text-[11.5px] text-muted">{storeName}</p>
             </div>
           </div>
           <button
@@ -80,8 +83,11 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Main">
-          <ul className="flex flex-col gap-0.5">
+        <nav className="flex-1 overflow-y-auto px-3 py-2" aria-label="Main">
+          <p className="px-3 pt-2 pb-2 text-[11px] font-medium tracking-wider text-muted uppercase">
+            Menu
+          </p>
+          <ul className="flex flex-col gap-1.5">
             {ITEMS.map((item) => {
               const count =
                 item.badge === 'credit'
@@ -97,38 +103,37 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                     to={item.to}
                     end={item.to === '/'}
                     onClick={onClose}
+                    title={item.sublabel}
                     className={({ isActive }) =>
                       cn(
-                        'flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors',
+                        'flex h-11 items-center gap-3 rounded-2xl px-3.5 text-[13.5px] font-medium transition-[color,box-shadow] duration-200',
                         isActive
-                          ? 'bg-brand-soft text-brand'
-                          : 'text-ink-2 hover:bg-surface-2 hover:text-ink',
+                          ? 'text-brand shadow-(--shadow-inset-sm)'
+                          : 'text-ink-2 hover:text-ink hover:shadow-(--shadow-control)',
                       )
                     }
                   >
-                    <item.icon size={18} aria-hidden />
-                    <span className="flex-1">
-                      <span className="block text-[13.5px] leading-tight font-medium">
-                        {item.label}
-                      </span>
-                      <span className="block text-[11px] text-muted">{item.sublabel}</span>
-                    </span>
+                    <item.icon size={18} strokeWidth={1.9} aria-hidden />
+                    <span className="flex-1">{item.label}</span>
                     {count > 0 ? (
                       <span
-                        className="tnum rounded-md px-1.5 py-0.5 text-[11px] font-semibold"
+                        className="tnum grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-semibold"
                         style={{
                           background:
                             item.badge === 'credit'
-                              ? 'color-mix(in srgb, var(--status-critical) 18%, transparent)'
-                              : 'color-mix(in srgb, var(--status-warning) 22%, transparent)',
-                          color: 'var(--text-primary)',
+                              ? 'color-mix(in srgb, var(--status-critical) 16%, transparent)'
+                              : 'color-mix(in srgb, var(--status-warning) 24%, transparent)',
+                          color:
+                            item.badge === 'credit'
+                              ? 'var(--status-critical)'
+                              : 'var(--text-primary)',
                         }}
                         title={
                           item.badge === 'credit'
-                            ? `${count} customers owing for over a month`
+                            ? `${plural(count, 'customer')} owing for over a month`
                             : item.badge === 'parking'
-                              ? `${count} parkers behind on their fee`
-                              : `${count} products running low`
+                              ? `${plural(count, 'parker')} behind on the fee`
+                              : `${plural(count, 'product')} running low`
                         }
                       >
                         {count}
@@ -141,10 +146,13 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           </ul>
         </nav>
 
-        <div className="border-t border-line px-4 py-3">
-          <p className="text-[11px] leading-relaxed text-muted">
-            Data is stored in this browser. Export a backup from Settings.
-          </p>
+        <div className="p-3">
+          <div className="flex gap-2.5 rounded-2xl p-3.5 shadow-(--shadow-inset-sm)">
+            <HardDrive size={15} className="mt-px shrink-0 text-muted" aria-hidden />
+            <p className="text-[11.5px] leading-relaxed text-ink-2">
+              Data is stored in this browser. Export a backup from Settings.
+            </p>
+          </div>
         </div>
       </aside>
     </>

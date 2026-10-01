@@ -112,7 +112,7 @@ export function PaymentReceiptModal({
       }
     >
       {/* On screen: the same figures, laid out for reading rather than paper. */}
-      <div className="rounded-lg border border-line bg-surface-2 px-4 py-4 text-center">
+      <div className="rounded-2xl bg-surface shadow-(--shadow-inset-sm) px-4 py-4 text-center">
         <p className="text-[13px] font-semibold text-ink">{storeName}</p>
         <p className="text-[11.5px] tracking-wide text-muted uppercase">Payment receipt</p>
 

@@ -58,10 +58,10 @@ export function BarList({
                   {formatValue(row.value)}
                 </span>
               </div>
-              {/* 4px rounded data-end, anchored to the baseline at left. */}
-              <div className="h-2 w-full overflow-hidden rounded-[2px] bg-surface-2">
+              {/* A groove pressed into the card, anchored to the baseline at left. */}
+              <div className="h-2.5 w-full overflow-hidden rounded-full bg-surface shadow-(--shadow-inset-sm)">
                 <div
-                  className="h-full rounded-r-[4px] transition-[width] duration-300"
+                  className="h-full rounded-full transition-[width] duration-300"
                   style={{ width: `${Math.max(pct, 1.5)}%`, background: color }}
                 />
               </div>

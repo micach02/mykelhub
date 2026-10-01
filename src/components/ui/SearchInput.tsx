@@ -18,7 +18,7 @@ export function SearchInput({
     <div className={cn('relative', className)}>
       <Search
         size={15}
-        className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted"
+        className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-muted"
         aria-hidden
       />
       <input
@@ -28,7 +28,7 @@ export function SearchInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label={placeholder}
-        className="h-9.5 w-full rounded-lg border border-line bg-surface pr-9 pl-9 text-sm text-ink placeholder:text-muted transition-colors hover:border-line-strong focus:border-brand focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/25 [&::-webkit-search-cancel-button]:hidden"
+        className="h-10 w-full rounded-xl border-0 bg-surface pr-9 pl-9.5 text-sm text-ink shadow-(--shadow-inset-sm) transition-shadow placeholder:text-muted focus:ring-2 focus:ring-brand/45 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
       />
       {value ? (
         <button

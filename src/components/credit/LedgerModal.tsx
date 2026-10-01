@@ -4,6 +4,7 @@ import { ConfirmDialog, Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { Table, TableWrap, Td, Th, Tr } from '../ui/Table'
+import { Pagination, usePagination } from '../ui/Pagination'
 import { EditChargeModal } from './EditChargeModal'
 import { EditPaymentModal } from './EditPaymentModal'
 import { PaymentReceiptModal } from './PaymentReceiptModal'
@@ -58,6 +59,10 @@ export function LedgerModal({
     [customer, sales, payments],
   )
 
+  // Newest first, ten at a time, so a long history does not turn the dialog
+  // into a scroll. Another customer starts back on the first page.
+  const pager = usePagination(entries, 10, [customer?.id])
+
   if (!customer || !account) return null
 
   const bucket = ageBucket(account.daysOutstanding)
@@ -108,7 +113,7 @@ export function LedgerModal({
           </>
         }
       >
-        <div className="rounded-lg border border-line bg-surface-2 px-4 py-4">
+        <div className="rounded-2xl bg-surface shadow-(--shadow-inset-sm) px-4 py-4">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="text-[12px] text-ink-2">Outstanding balance</p>
@@ -181,110 +186,113 @@ export function LedgerModal({
 
         <h3 className="mt-5 mb-2 text-[13px] font-semibold text-ink">Entries</h3>
         {entries.length === 0 ? (
-          <p className="rounded-lg border border-line bg-surface-2 px-4 py-8 text-center text-[13px] text-ink-2">
+          <p className="rounded-2xl bg-surface shadow-(--shadow-inset-sm) px-4 py-8 text-center text-[13px] text-ink-2">
             {customer.name} has never bought on credit or been charged for parking.
           </p>
         ) : (
-          <TableWrap className="rounded-lg border border-line">
-            <Table className="min-w-[520px]">
-              <thead>
-                <tr>
-                  <Th>Date</Th>
-                  <Th>Details</Th>
-                  <Th align="right">Charged</Th>
-                  <Th align="right">Paid</Th>
-                  <Th align="right">Balance</Th>
-                  <Th align="right" className="w-10" />
-                </tr>
-              </thead>
-              <tbody>
-                {entries.map((entry) => (
-                  <Tr key={entry.id}>
-                    <Td className="whitespace-nowrap text-ink-2">{fmt.dateTime(entry.at)}</Td>
-                    <Td>
-                      <span className="flex items-start gap-1.5">
-                        {entry.kind === 'parking' ? (
-                          <Badge tone="neutral" className="mt-px shrink-0">
-                            Parking
-                          </Badge>
-                        ) : null}
-                        <span className="line-clamp-2 text-[12.5px]">{entry.description}</span>
-                      </span>
-                    </Td>
-                    <Td align="right" numeric>
-                      {entry.kind !== 'payment' ? (
-                        <span className="font-semibold">{fmt.money(entry.amount)}</span>
-                      ) : (
-                        <span className="text-muted">&ndash;</span>
-                      )}
-                    </Td>
-                    <Td align="right" numeric>
-                      {entry.kind === 'payment' ? (
-                        <span className="font-semibold" style={{ color: 'var(--delta-up)' }}>
-                          {fmt.money(entry.amount)}
+          <div className="overflow-hidden rounded-2xl border border-line">
+            <TableWrap>
+              <Table className="min-w-[520px]">
+                <thead>
+                  <tr>
+                    <Th>Date</Th>
+                    <Th>Details</Th>
+                    <Th align="right">Charged</Th>
+                    <Th align="right">Paid</Th>
+                    <Th align="right">Balance</Th>
+                    <Th align="right" className="w-10" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {pager.visible.map((entry) => (
+                    <Tr key={entry.id}>
+                      <Td className="whitespace-nowrap text-ink-2">{fmt.dateTime(entry.at)}</Td>
+                      <Td>
+                        <span className="flex items-start gap-1.5">
+                          {entry.kind === 'parking' ? (
+                            <Badge tone="neutral" className="mt-px shrink-0">
+                              Parking
+                            </Badge>
+                          ) : null}
+                          <span className="line-clamp-2 text-[12.5px]">{entry.description}</span>
                         </span>
-                      ) : (
-                        <span className="text-muted">&ndash;</span>
-                      )}
-                    </Td>
-                    <Td align="right" numeric className="font-semibold">
-                      {fmt.money(Math.max(0, entry.runningBalance))}
-                    </Td>
-                    <Td align="right">
-                      <span className="flex items-center justify-end gap-1.5">
-                        {entry.kind === 'goods' && entry.sale && !entry.sale.voided ? (
-                          <button
-                            onClick={() => setEditCharge(entry.sale ?? null)}
-                            aria-label="Edit this charge"
-                            title="Edit this charge"
-                            className="text-muted transition-colors hover:text-brand"
-                          >
-                            <Pencil size={14} />
-                          </button>
-                        ) : null}
-                        {entry.kind === 'payment' && entry.payment ? (
-                          <>
+                      </Td>
+                      <Td align="right" numeric>
+                        {entry.kind !== 'payment' ? (
+                          <span className="font-semibold">{fmt.money(entry.amount)}</span>
+                        ) : (
+                          <span className="text-muted">&ndash;</span>
+                        )}
+                      </Td>
+                      <Td align="right" numeric>
+                        {entry.kind === 'payment' ? (
+                          <span className="font-semibold" style={{ color: 'var(--delta-up)' }}>
+                            {fmt.money(entry.amount)}
+                          </span>
+                        ) : (
+                          <span className="text-muted">&ndash;</span>
+                        )}
+                      </Td>
+                      <Td align="right" numeric className="font-semibold">
+                        {fmt.money(Math.max(0, entry.runningBalance))}
+                      </Td>
+                      <Td align="right">
+                        <span className="flex items-center justify-end gap-1.5">
+                          {entry.kind === 'goods' && entry.sale && !entry.sale.voided ? (
                             <button
-                              onClick={() => setReceiptFor(entry.payment ?? null)}
-                              aria-label="Get the receipt for this payment"
-                              title="Receipt"
-                              className="text-muted transition-colors hover:text-brand"
-                            >
-                              <Printer size={14} />
-                            </button>
-                            <button
-                              onClick={() => setEditPayment(entry.payment ?? null)}
-                              aria-label="Edit this payment"
-                              title="Edit this payment"
+                              onClick={() => setEditCharge(entry.sale ?? null)}
+                              aria-label="Edit this charge"
+                              title="Edit this charge"
                               className="text-muted transition-colors hover:text-brand"
                             >
                               <Pencil size={14} />
                             </button>
-                            <button
-                              onClick={() => setPendingDelete(entry.id)}
-                              aria-label="Delete this payment"
-                              title="Delete this payment"
-                              className="text-muted transition-colors hover:text-critical"
+                          ) : null}
+                          {entry.kind === 'payment' && entry.payment ? (
+                            <>
+                              <button
+                                onClick={() => setReceiptFor(entry.payment ?? null)}
+                                aria-label="Get the receipt for this payment"
+                                title="Receipt"
+                                className="text-muted transition-colors hover:text-brand"
+                              >
+                                <Printer size={14} />
+                              </button>
+                              <button
+                                onClick={() => setEditPayment(entry.payment ?? null)}
+                                aria-label="Edit this payment"
+                                title="Edit this payment"
+                                className="text-muted transition-colors hover:text-brand"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                              <button
+                                onClick={() => setPendingDelete(entry.id)}
+                                aria-label="Delete this payment"
+                                title="Delete this payment"
+                                className="text-muted transition-colors hover:text-critical"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </>
+                          ) : null}
+                          {entry.kind === 'parking' ? (
+                            <span
+                              className="text-[11px] text-muted"
+                              title="Parking months come from the monthly fee, so they are changed on the Parking page rather than one at a time."
                             >
-                              <Trash2 size={14} />
-                            </button>
-                          </>
-                        ) : null}
-                        {entry.kind === 'parking' ? (
-                          <span
-                            className="text-[11px] text-muted"
-                            title="Parking months come from the monthly fee, so they are changed on the Parking page rather than one at a time."
-                          >
-                            auto
-                          </span>
-                        ) : null}
-                      </span>
-                    </Td>
-                  </Tr>
-                ))}
-              </tbody>
-            </Table>
-          </TableWrap>
+                              auto
+                            </span>
+                          ) : null}
+                        </span>
+                      </Td>
+                    </Tr>
+                  ))}
+                </tbody>
+              </Table>
+            </TableWrap>
+            <Pagination {...pager} onPage={pager.setPage} noun="entry" many="entries" />
+          </div>
         )}
       </Modal>
 

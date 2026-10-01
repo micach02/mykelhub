@@ -17,10 +17,13 @@ import { VaultAdjustModal } from '../components/vault/VaultAdjustModal'
 import { useStore } from '../store/useStore'
 import { useFormat } from '../lib/useFormat'
 import { totals, vaultBalance, vaultFlow } from '../lib/analytics'
-import { addDays, downloadCsv, startOfDay } from '../lib/utils'
+import { addDays, downloadCsv, plural, startOfDay } from '../lib/utils'
+import { Pagination, usePagination } from '../components/ui/Pagination'
 import type { Sale, Settlement } from '../types'
 
 type RangeKey = 'today' | '7' | '30' | '60' | 'all'
+
+const PAGE_SIZE = 25
 
 const RANGE_DAYS: Record<RangeKey, number | null> = {
   today: 1,
@@ -80,6 +83,10 @@ export function Sales() {
     })
   }, [sales, customers, query, range, settlement])
 
+  // A page at a time, so a month of sales does not push the vault thousands of
+  // pixels down.
+  const pager = usePagination(rows, PAGE_SIZE, [query, range, settlement])
+
   const summary = useMemo(() => totals(rows), [rows])
 
   const cash = useMemo(() => {
@@ -131,16 +138,16 @@ export function Sales() {
         }
       />
 
-      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatTile
           label="Total sales"
           value={fmt.money(summary.revenue)}
-          deltaLabel={`${summary.sales} transactions`}
+          deltaLabel={plural(summary.sales, 'transaction')}
         />
         <StatTile
           label="Profit"
           value={fmt.money(summary.profit)}
-          deltaLabel={`${summary.units} items sold`}
+          deltaLabel={`${plural(summary.units, 'item')} sold`}
         />
         <StatTile
           label="In the vault"
@@ -187,7 +194,7 @@ export function Sales() {
               <option value="credit">Credit</option>
             </Select>
           </div>
-          <p className="text-[12.5px] text-muted lg:ml-auto">{rows.length} transactions</p>
+          <p className="text-[12.5px] text-muted lg:ml-auto">{plural(rows.length, 'transaction')}</p>
         </div>
 
         {rows.length === 0 ? (
@@ -215,7 +222,7 @@ export function Sales() {
                 </tr>
               </thead>
               <tbody>
-                {rows.slice(0, 200).map((sale) => {
+                {pager.visible.map((sale) => {
                   const customer = customers.find((c) => c.id === sale.customerId)
                   return (
                     <Tr key={sale.id} className={sale.voided ? 'opacity-55' : undefined}>
@@ -265,11 +272,7 @@ export function Sales() {
           </TableWrap>
         )}
 
-        {rows.length > 200 ? (
-          <p className="border-t border-line px-4 py-3 text-center text-[12.5px] text-muted">
-            Showing the 200 most recent of {rows.length}. Narrow the period, or export to CSV.
-          </p>
-        ) : null}
+        <Pagination {...pager} onPage={pager.setPage} noun="sale" />
       </Card>
 
       <Card className="mt-4">
@@ -285,19 +288,19 @@ export function Sales() {
         />
         <CardBody className="border-b border-line">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="rounded-lg border border-line bg-surface-2 px-3.5 py-3">
+            <div className="rounded-2xl bg-surface shadow-(--shadow-inset-sm) px-3.5 py-3">
               <p className="text-[12px] text-ink-2">In the drawer now</p>
               <p className="tnum mt-0.5 text-[20px] font-semibold text-ink">
                 {fmt.money(cash.balance)}
               </p>
             </div>
-            <div className="rounded-lg border border-line bg-surface-2 px-3.5 py-3">
+            <div className="rounded-2xl bg-surface shadow-(--shadow-inset-sm) px-3.5 py-3">
               <p className="text-[12px] text-ink-2">Money in this month</p>
               <p className="tnum mt-0.5 text-[20px] font-semibold" style={{ color: 'var(--delta-up)' }}>
                 {fmt.money(cash.month.inflow)}
               </p>
             </div>
-            <div className="rounded-lg border border-line bg-surface-2 px-3.5 py-3">
+            <div className="rounded-2xl bg-surface shadow-(--shadow-inset-sm) px-3.5 py-3">
               <p className="text-[12px] text-ink-2">Money out this month</p>
               <p
                 className="tnum mt-0.5 text-[20px] font-semibold"

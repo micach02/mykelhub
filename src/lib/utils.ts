@@ -2,6 +2,11 @@ export function cn(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(' ')
 }
 
+/** "1 customer", "3 customers": a count with its noun in the right number. */
+export function plural(count: number, one: string, many = `${one}s`): string {
+  return `${count} ${count === 1 ? one : many}`
+}
+
 export function uid(prefix = ''): string {
   const rand =
     typeof crypto !== 'undefined' && 'randomUUID' in crypto

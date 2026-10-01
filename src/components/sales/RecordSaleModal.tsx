@@ -188,7 +188,7 @@ export function RecordSaleModal({
           <div className="relative">
             <Search
               size={15}
-              className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted"
+              className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-muted"
               aria-hidden
             />
             <input
@@ -198,16 +198,16 @@ export function RecordSaleModal({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search a product"
               aria-label="Search a product"
-              className="h-9.5 w-full rounded-lg border border-line bg-surface pr-3 pl-9 text-sm text-ink placeholder:text-muted hover:border-line-strong focus:border-brand focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/25 [&::-webkit-search-cancel-button]:hidden"
+              className="h-10 w-full rounded-xl border-0 bg-surface pr-3 pl-9.5 text-sm text-ink shadow-(--shadow-inset-sm) placeholder:text-muted focus:ring-2 focus:ring-brand/45 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
             />
           </div>
 
           {products.length === 0 ? (
-            <p className="mt-3 rounded-lg border border-line bg-surface-2 px-4 py-6 text-center text-[13px] text-ink-2">
+            <p className="mt-3 rounded-2xl bg-surface shadow-(--shadow-inset-sm) px-4 py-6 text-center text-[13px] text-ink-2">
               No products yet. Add them in Inventory, or add an item not in inventory below.
             </p>
           ) : (
-            <div className="mt-2 flex max-h-44 flex-wrap content-start gap-1.5 overflow-y-auto">
+            <div className="-mx-1.5 mt-1 flex max-h-48 flex-wrap content-start gap-2 overflow-y-auto p-1.5">
               {matches.map((p) => {
                 const taken = lines.find((l) => l.productId === p.id)?.qty ?? 0
                 const out = p.stock <= 0
@@ -217,11 +217,11 @@ export function RecordSaleModal({
                     onClick={() => addLine(p.id)}
                     disabled={out && !onCredit}
                     className={cn(
-                      'flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12.5px] transition-colors',
+                      'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] transition-[color,box-shadow]',
                       taken > 0
-                        ? 'border-brand bg-brand-soft text-brand'
-                        : 'border-line text-ink-2 hover:border-brand hover:text-ink',
-                      out && !onCredit && 'cursor-not-allowed opacity-45 hover:border-line',
+                        ? 'text-brand shadow-(--shadow-inset-sm)'
+                        : 'text-ink-2 shadow-(--shadow-control) hover:text-ink',
+                      out && !onCredit && 'cursor-not-allowed opacity-45',
                     )}
                   >
                     <span className="font-medium">{p.name}</span>
@@ -251,7 +251,7 @@ export function RecordSaleModal({
         </div>
 
         {lines.length > 0 ? (
-          <ul className="divide-y divide-line rounded-lg border border-line">
+          <ul className="divide-y divide-line rounded-2xl shadow-(--shadow-inset-sm)">
             {lines.map((line) => {
               const stock = stockOf(line.productId)
               const short = !line.custom && line.qty > stock
@@ -354,7 +354,7 @@ export function RecordSaleModal({
         </div>
 
         {settlement === 'credit' && customer ? (
-          <div className="rounded-lg border border-line bg-surface-2 px-3.5 py-2.5">
+          <div className="rounded-2xl bg-surface shadow-(--shadow-inset-sm) px-3.5 py-2.5">
             <p className="text-[12.5px] leading-relaxed text-ink">
               {customer.name} currently owes{' '}
               <span className="tnum font-semibold">{fmt.money(account?.balance ?? 0)}</span>. After
@@ -363,7 +363,7 @@ export function RecordSaleModal({
           </div>
         ) : null}
 
-        <div className="rounded-lg border border-line bg-surface-2 px-3.5 py-3">
+        <div className="rounded-2xl bg-surface shadow-(--shadow-inset-sm) px-3.5 py-3">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[12px] text-ink-2">Money in the vault</p>

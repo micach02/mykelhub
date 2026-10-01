@@ -4,20 +4,25 @@ import { cn } from '../../lib/utils'
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'subtle'
 type Size = 'sm' | 'md' | 'lg' | 'icon'
 
+// Buttons are raised and press in when clicked. The primary action keeps a
+// solid brand fill (a gradient with a glow in the futuristic style) so it is
+// never hard to find.
 const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-brand text-white hover:brightness-110 active:brightness-95 shadow-sm',
+  primary:
+    'bg-brand [background-image:var(--brand-fill)] text-white shadow-(--shadow-primary) hover:brightness-110 active:shadow-[inset_3px_3px_7px_rgb(0_0_0/0.25)]',
   secondary:
-    'bg-surface text-ink border border-line hover:bg-surface-2 active:bg-surface-3',
-  ghost: 'text-ink-2 hover:bg-surface-2 hover:text-ink',
-  danger: 'bg-critical text-white hover:brightness-110 active:brightness-95',
-  subtle: 'bg-surface-2 text-ink hover:bg-surface-3',
+    'bg-surface text-ink shadow-(--shadow-control) hover:text-brand active:shadow-(--shadow-inset-sm)',
+  ghost: 'text-ink-2 hover:text-ink hover:shadow-(--shadow-control) active:shadow-(--shadow-inset-sm)',
+  danger:
+    'bg-critical text-white shadow-(--shadow-control) hover:brightness-110 active:shadow-[inset_3px_3px_7px_rgb(0_0_0/0.25)]',
+  subtle: 'bg-surface text-ink shadow-(--shadow-inset-sm) hover:text-brand',
 }
 
 const SIZES: Record<Size, string> = {
-  sm: 'h-8 px-3 text-[13px] gap-1.5',
-  md: 'h-9.5 px-4 text-sm gap-2',
-  lg: 'h-11 px-5 text-[15px] gap-2',
-  icon: 'h-9 w-9 justify-center',
+  sm: 'h-8 gap-1.5 rounded-xl px-3.5 text-[13px]',
+  md: 'h-10 gap-2 rounded-2xl px-4.5 text-sm',
+  lg: 'h-12 gap-2 rounded-2xl px-6 text-[15px]',
+  icon: 'h-9 w-9 justify-center rounded-full',
 }
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -36,7 +41,7 @@ export function Button({
   return (
     <button
       className={cn(
-        'inline-flex items-center rounded-lg font-medium whitespace-nowrap transition-[background,filter,border-color] duration-150',
+        'inline-flex items-center font-medium whitespace-nowrap transition-[background,color,filter,box-shadow] duration-200',
         'disabled:pointer-events-none disabled:opacity-45',
         VARIANTS[variant],
         SIZES[size],

@@ -1,13 +1,26 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, Menu, Monitor, Moon, NotebookPen, Plus, Sun } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowRight,
+  Bell,
+  Boxes,
+  CarFront,
+  CheckCircle2,
+  Menu,
+  Monitor,
+  Moon,
+  NotebookPen,
+  Plus,
+  Sun,
+} from 'lucide-react'
 import { Button } from '../ui/Button'
 import { SearchInput } from '../ui/SearchInput'
 import { RecordSaleModal } from '../sales/RecordSaleModal'
 import { useStore } from '../../store/useStore'
 import { ageBucket, buildAccounts, lowStock, stockLevel } from '../../lib/analytics'
 import { useFormat } from '../../lib/useFormat'
-import { cn } from '../../lib/utils'
+import { cn, plural } from '../../lib/utils'
 import type { Settlement, ThemePreference } from '../../types'
 
 const THEME_CYCLE: ThemePreference[] = ['light', 'dark', 'system']
@@ -40,8 +53,15 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
         .sort((a, b) => b.balance - a.balance),
     [accounts],
   )
+  const parkingBehind = useMemo(
+    () =>
+      [...accounts.values()]
+        .filter((a) => a.parkingActive && a.parkingBehind > 0)
+        .sort((a, b) => b.parkingOwed - a.parkingOwed),
+    [accounts],
+  )
   const low = useMemo(() => lowStock(products), [products])
-  const alertCount = overdue.length + low.length
+  const alertCount = overdue.length + parkingBehind.length + low.length
 
   /** One search box across both the customer list and the shelves. */
   const results = useMemo(() => {
@@ -61,9 +81,22 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
     const onClickOutside = (e: MouseEvent) => {
       if (alertsRef.current && !alertsRef.current.contains(e.target as Node)) setShowAlerts(false)
     }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowAlerts(false)
+    }
     document.addEventListener('mousedown', onClickOutside)
-    return () => document.removeEventListener('mousedown', onClickOutside)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onClickOutside)
+      document.removeEventListener('keydown', onKey)
+    }
   }, [])
+
+  /** Close the panel and go where the notification points. */
+  const openFromAlert = (to: string) => {
+    setShowAlerts(false)
+    navigate(to)
+  }
 
   const ThemeIcon = THEME_ICON[theme]
   const cycleTheme = () =>
@@ -71,7 +104,7 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
 
   return (
     <>
-      <header className="no-print sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-line bg-surface/85 px-4 backdrop-blur-md">
+      <header className="no-print sticky top-0 z-20 flex h-16 items-center gap-3 bg-surface/85 px-4 backdrop-blur-xl sm:px-6">
         <Button
           variant="ghost"
           size="icon"
@@ -89,7 +122,7 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
             placeholder="Search a customer or product"
           />
           {hasResults ? (
-            <div className="animate-fade-up absolute top-11 left-0 z-30 w-full overflow-hidden rounded-lg border border-line bg-surface shadow-[var(--shadow-pop)]">
+            <div className="animate-fade-up absolute top-12 left-0 z-30 w-full overflow-hidden rounded-2xl border border-(--edge) bg-surface-pop shadow-(--shadow-pop)">
               {results.customers.length > 0 ? (
                 <>
                   <p className="border-b border-line px-3 py-1.5 text-[11px] font-semibold tracking-wider text-muted uppercase">
@@ -175,8 +208,9 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
               variant="ghost"
               size="icon"
               onClick={() => setShowAlerts((v) => !v)}
-              aria-label={`Alerts (${alertCount})`}
+              aria-label={`Notifications (${alertCount})`}
               aria-expanded={showAlerts}
+              aria-haspopup="dialog"
             >
               <span className="relative">
                 <Bell size={18} />
@@ -192,78 +226,97 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
             </Button>
 
             {showAlerts ? (
-              <div className="animate-fade-up absolute top-11 right-0 z-30 w-80 overflow-hidden rounded-lg border border-line bg-surface shadow-[var(--shadow-pop)]">
-                {alertCount === 0 ? (
-                  <p className="px-3.5 py-6 text-center text-[13px] text-ink-2">
-                    Nothing needs attention.
+              // Full width under the top bar on a phone, where a panel hung off
+              // the bell would run past the screen edge.
+              <div
+                role="dialog"
+                aria-label="Notifications"
+                className="animate-fade-up fixed inset-x-3 top-[4.25rem] z-30 overflow-hidden rounded-2xl border border-(--edge) bg-surface-pop shadow-(--shadow-pop) sm:absolute sm:inset-x-auto sm:top-12 sm:right-0 sm:w-[23rem]"
+              >
+                <div className="border-b border-line px-4 py-3">
+                  <p className="font-display text-[15px] font-semibold text-ink">Notifications</p>
+                  <p className="text-[12px] text-muted">
+                    {alertCount === 0
+                      ? 'All clear'
+                      : `${plural(alertCount, 'thing')} ${alertCount === 1 ? 'needs' : 'need'} attention`}
                   </p>
-                ) : null}
+                </div>
 
-                {overdue.length > 0 ? (
-                  <>
-                    <p className="border-b border-line px-3.5 py-2 text-[12px] font-semibold text-ink">
-                      Owing over a month
-                    </p>
-                    <ul>
+                <div className="max-h-[min(70vh,32rem)] overflow-y-auto">
+                  {alertCount === 0 ? (
+                    <div className="flex flex-col items-center gap-2 px-6 py-8 text-center">
+                      <CheckCircle2 size={22} style={{ color: 'var(--status-good)' }} aria-hidden />
+                      <p className="text-[13px] text-ink-2">
+                        Nobody is overdue, parking is paid up, and the shelves are stocked.
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {overdue.length > 0 ? (
+                    <AlertSection
+                      tone="critical"
+                      icon={<AlertTriangle size={13} aria-hidden />}
+                      title="Owing over a month"
+                      count={overdue.length}
+                      moreLabel="See all on Credit"
+                      onMore={() => openFromAlert('/credit')}
+                    >
                       {overdue.slice(0, 4).map((a) => (
-                        <li key={a.customerId} className="border-b border-line last:border-b-0">
-                          <button
-                            onClick={() => {
-                              setShowAlerts(false)
-                              navigate(`/credit?customer=${a.customerId}`)
-                            }}
-                            className="flex w-full items-center justify-between gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-surface-2"
-                          >
-                            <span className="min-w-0">
-                              <span className="block truncate text-[13px] text-ink">{a.name}</span>
-                              <span className="block text-[11.5px] text-muted">
-                                {a.daysOutstanding} days
-                              </span>
-                            </span>
-                            <span
-                              className="tnum shrink-0 text-[12px] font-semibold"
-                              style={{ color: 'var(--status-critical)' }}
-                            >
-                              {fmt.money(a.balance)}
-                            </span>
-                          </button>
-                        </li>
+                        <AlertRow
+                          key={a.customerId}
+                          title={a.name}
+                          detail={plural(a.daysOutstanding, 'day')}
+                          value={fmt.money(a.balance)}
+                          critical
+                          onClick={() => openFromAlert(`/credit?customer=${a.customerId}`)}
+                        />
                       ))}
-                    </ul>
-                  </>
-                ) : null}
+                    </AlertSection>
+                  ) : null}
 
-                {low.length > 0 ? (
-                  <>
-                    <p className="border-y border-line px-3.5 py-2 text-[12px] font-semibold text-ink">
-                      Running low
-                    </p>
-                    <ul>
-                      {low.slice(0, 4).map((p) => (
-                        <li key={p.id} className="border-b border-line last:border-b-0">
-                          <button
-                            onClick={() => {
-                              setShowAlerts(false)
-                              navigate(`/inventory?focus=${p.id}`)
-                            }}
-                            className="flex w-full items-center justify-between gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-surface-2"
-                          >
-                            <span className="truncate text-[13px] text-ink">{p.name}</span>
-                            <span
-                              className="tnum shrink-0 text-[12px] font-semibold"
-                              style={{
-                                color:
-                                  p.stock <= 0 ? 'var(--status-critical)' : 'var(--text-primary)',
-                              }}
-                            >
-                              {p.stock} left
-                            </span>
-                          </button>
-                        </li>
+                  {parkingBehind.length > 0 ? (
+                    <AlertSection
+                      tone="warning"
+                      icon={<CarFront size={13} aria-hidden />}
+                      title="Behind on parking"
+                      count={parkingBehind.length}
+                      moreLabel="See all on Parking"
+                      onMore={() => openFromAlert('/parking')}
+                    >
+                      {parkingBehind.slice(0, 4).map((a) => (
+                        <AlertRow
+                          key={a.customerId}
+                          title={a.name}
+                          detail={`${plural(a.parkingBehind, 'month')} behind`}
+                          value={fmt.money(a.parkingOwed)}
+                          onClick={() => openFromAlert('/parking')}
+                        />
                       ))}
-                    </ul>
-                  </>
-                ) : null}
+                    </AlertSection>
+                  ) : null}
+
+                  {low.length > 0 ? (
+                    <AlertSection
+                      tone="warning"
+                      icon={<Boxes size={13} aria-hidden />}
+                      title="Running low"
+                      count={low.length}
+                      moreLabel="See what to buy"
+                      onMore={() => openFromAlert('/inventory?filter=low')}
+                    >
+                      {low.slice(0, 5).map((p) => (
+                        <AlertRow
+                          key={p.id}
+                          title={p.name}
+                          detail={`Reorder at ${p.reorderLevel} ${p.unit}`}
+                          value={p.stock <= 0 ? 'Out of stock' : `${p.stock} ${p.unit} left`}
+                          critical={p.stock <= 0}
+                          onClick={() => openFromAlert(`/inventory?focus=${p.id}`)}
+                        />
+                      ))}
+                    </AlertSection>
+                  ) : null}
+                </div>
               </div>
             ) : null}
           </div>
@@ -286,5 +339,86 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
         onClose={() => setSaleOpen(null)}
       />
     </>
+  )
+}
+
+/** One kind of notification: a heading with a count, a few rows, and the rest. */
+function AlertSection({
+  tone,
+  icon,
+  title,
+  count,
+  moreLabel,
+  onMore,
+  children,
+}: {
+  tone: 'critical' | 'warning'
+  icon: ReactNode
+  title: string
+  count: number
+  moreLabel: string
+  onMore: () => void
+  children: ReactNode
+}) {
+  const color = tone === 'critical' ? 'var(--status-critical)' : 'var(--status-warning)'
+  return (
+    <section className="border-b border-line py-2 last:border-b-0">
+      <div className="flex items-center gap-2 px-4 pt-1 pb-1.5">
+        <span
+          className="grid size-6 shrink-0 place-items-center rounded-full"
+          style={{ color, background: `color-mix(in srgb, ${color} 16%, transparent)` }}
+        >
+          {icon}
+        </span>
+        <p className="flex-1 text-[11.5px] font-semibold tracking-wider text-ink-2 uppercase">
+          {title}
+        </p>
+        <span className="tnum text-[12px] font-semibold text-muted">{count}</span>
+      </div>
+      <ul>{children}</ul>
+      <button
+        type="button"
+        onClick={onMore}
+        className="mt-0.5 flex items-center gap-1 px-4 py-1.5 text-[12.5px] font-medium text-brand hover:underline"
+      >
+        {moreLabel}
+        <ArrowRight size={13} aria-hidden />
+      </button>
+    </section>
+  )
+}
+
+function AlertRow({
+  title,
+  detail,
+  value,
+  critical,
+  onClick,
+}: {
+  title: string
+  detail: string
+  value: string
+  critical?: boolean
+  onClick: () => void
+}) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex w-full items-center justify-between gap-3 px-4 py-2 text-left transition-colors hover:bg-surface-2"
+      >
+        <span className="min-w-0">
+          <span className="block truncate text-[13px] font-medium text-ink">{title}</span>
+          <span className="block text-[11.5px] text-muted">{detail}</span>
+        </span>
+        <span
+          className="tnum shrink-0 text-[12.5px] font-semibold"
+          style={{ color: critical ? 'var(--status-critical)' : 'var(--text-primary)' }}
+        >
+          {value}
+        </span>
+      </button>
+    </li>
   )
 }

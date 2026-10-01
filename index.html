@@ -7,14 +7,17 @@
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <title>MykelHub — Centralized Store Management</title>
     <script>
-      // Resolve the stored theme before first paint to avoid a flash.
+      // Resolve the stored theme and style before first paint to avoid a flash.
+      document.documentElement.dataset.style = 'futuristic'
       try {
         var raw = localStorage.getItem('mykelhub.store')
-        var theme = raw ? JSON.parse(raw).state.settings.theme : 'system'
+        var settings = raw ? JSON.parse(raw).state.settings : {}
+        var theme = settings.theme || 'system'
         if (theme !== 'dark' && theme !== 'light') {
           theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
         }
         document.documentElement.dataset.theme = theme
+        if (settings.style === 'soft') document.documentElement.dataset.style = 'soft'
       } catch (e) {
         document.documentElement.dataset.theme = 'light'
       }

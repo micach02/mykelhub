@@ -12,23 +12,32 @@
 :root {
   color-scheme: light;
 
-  --plane: #f4f4f1;
-  --surface-1: #fcfcfb;
-  --surface-2: #f0efec;
-  --surface-3: #e7e6e1;
+  /* Soft UI: the page and everything on it share one base colour. Shapes are
+     moulded out of it by light from the top left: a highlight on that side,
+     a shadow on the other. Wells and fills sit a shade deeper. */
+  --plane: #e8ecf2;
+  --surface-1: #e8ecf2;
+  --surface-2: #e0e5ec;
+  --surface-3: #d6dce5;
 
-  --text-primary: #0b0b0b;
-  --text-secondary: #52514e;
-  --text-muted: #898781;
+  /* Text stays dark and firm; softness is for shapes, not for reading. */
+  --text-primary: #1c2330;
+  --text-secondary: #485263;
+  --text-muted: #687284;
 
-  --border: rgba(11, 11, 11, 0.1);
-  --border-strong: rgba(11, 11, 11, 0.18);
-  --grid: #e1e0d9;
-  --baseline: #c3c2b7;
+  --border: rgba(126, 142, 168, 0.2);
+  --border-strong: rgba(126, 142, 168, 0.38);
+  --edge: rgba(255, 255, 255, 0.55);
+  --grid: #d5dbe4;
+  --baseline: #b3bccb;
+
+  --neu-light: rgba(255, 255, 255, 0.92);
+  --neu-dark: rgba(158, 172, 196, 0.6);
 
   --brand: #2a78d6;
+  --brand-strong: #1f63b8;
   --brand-ink: #ffffff;
-  --brand-soft: #e6f0fd;
+  --brand-soft: #d9e6f8;
 
   --series-1: #2a78d6;
   --series-2: #eb6834;
@@ -47,30 +56,52 @@
   --delta-up: #006300;
   --delta-down: #d03b3b;
 
-  --shadow-card: 0 1px 2px rgba(11, 11, 11, 0.06), 0 1px 3px rgba(11, 11, 11, 0.04);
-  --shadow-pop: 0 10px 30px rgba(11, 11, 11, 0.14), 0 2px 8px rgba(11, 11, 11, 0.08);
+  /* Raised, from large to small, then pressed in. Built from the two light
+     colours, so dark mode only has to redefine those. */
+  --shadow-card: 9px 9px 20px var(--neu-dark), -9px -9px 20px var(--neu-light);
+  --shadow-raise: 6px 6px 14px var(--neu-dark), -6px -6px 14px var(--neu-light);
+  --shadow-control: 4px 4px 9px var(--neu-dark), -4px -4px 9px var(--neu-light);
+  --shadow-pop: 16px 16px 36px var(--neu-dark), -12px -12px 30px var(--neu-light);
+  --shadow-inset: inset 4px 4px 8px var(--neu-dark), inset -4px -4px 8px var(--neu-light);
+  --shadow-inset-sm: inset 2px 2px 5px var(--neu-dark), inset -2px -2px 5px var(--neu-light);
+
+  /* What the futuristic style adds, switched off here. */
+  --shadow-primary: var(--shadow-control);
+  --brand-fill: none;
+  --plane-image: none;
+  --plane-size: auto;
+  --font-display: 'Inter Variable', system-ui, sans-serif;
+
+  /* Menus, pop-ups and notices float over the page, so they are fully solid
+     in every style: even a little see-through shows the page's text. */
+  --surface-pop: var(--surface-1);
 }
 
 [data-theme='dark'] {
   color-scheme: dark;
 
-  --plane: #0d0d0d;
-  --surface-1: #1a1a19;
-  --surface-2: #222220;
-  --surface-3: #2c2c2a;
+  --plane: #23272e;
+  --surface-1: #23272e;
+  --surface-2: #1e2127;
+  --surface-3: #2b3038;
 
-  --text-primary: #ffffff;
-  --text-secondary: #c3c2b7;
-  --text-muted: #898781;
+  --text-primary: #eef0f4;
+  --text-secondary: #b1b8c4;
+  --text-muted: #8c94a2;
 
-  --border: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.18);
-  --grid: #2c2c2a;
-  --baseline: #383835;
+  --border: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.12);
+  --edge: rgba(255, 255, 255, 0.04);
+  --grid: #2f343c;
+  --baseline: #3e444e;
+
+  --neu-light: rgba(255, 255, 255, 0.05);
+  --neu-dark: rgba(0, 0, 0, 0.5);
 
   --brand: #3987e5;
+  --brand-strong: #5b9cec;
   --brand-ink: #ffffff;
-  --brand-soft: #16233a;
+  --brand-soft: #142039;
 
   --series-1: #3987e5;
   --series-2: #d95926;
@@ -83,8 +114,104 @@
 
   --delta-up: #0ca30c;
 
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-pop: 0 14px 40px rgba(0, 0, 0, 0.6);
+  /* The shadow recipes above pick up these darker light colours as they are. */
+}
+
+/* ---------------------------------------------------------------------------
+   Futuristic style. Glass panels over a deep field lit by soft colour glows,
+   with hairline edges that catch the light instead of moulded shadows, and a
+   blue-to-violet accent. It overrides the values above, naming only what
+   changes, and works in light and dark like the soft style does.
+--------------------------------------------------------------------------- */
+[data-style='futuristic'] {
+  --plane: #eef1fb;
+  --plane-image:
+    linear-gradient(var(--plane-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--plane-grid) 1px, transparent 1px),
+    radial-gradient(56rem 38rem at 12% 0%, rgb(56 189 248 / 0.3), transparent 62%),
+    radial-gradient(50rem 36rem at 92% 8%, rgb(139 92 246 / 0.28), transparent 62%),
+    radial-gradient(46rem 32rem at 60% 105%, rgb(99 102 241 / 0.16), transparent 62%);
+  --plane-size: 36px 36px, 36px 36px, auto, auto, auto;
+  --plane-grid: rgb(79 70 229 / 0.06);
+
+  --surface-1: rgb(255 255 255 / 0.7);
+  --surface-2: rgb(238 242 255 / 0.75);
+  --surface-3: rgb(224 231 255 / 0.85);
+  --surface-pop: rgb(250 251 255);
+
+  --text-primary: #0b1020;
+  --text-secondary: #3e4762;
+  --text-muted: #626c88;
+
+  --border: rgb(99 102 241 / 0.14);
+  --border-strong: rgb(99 102 241 / 0.3);
+  --edge: rgb(99 102 241 / 0.2);
+  --grid: rgb(99 102 241 / 0.12);
+  --baseline: rgb(99 102 241 / 0.3);
+
+  --brand: #4f46e5;
+  --brand-strong: #4338ca;
+  --brand-soft: rgb(79 70 229 / 0.1);
+  --brand-fill: linear-gradient(135deg, #2563eb, #7c3aed);
+  --glow: rgb(99 102 241 / 0.4);
+
+  --neu-dark: rgb(30 41 82 / 0.16);
+
+  --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.8), 0 0 0 1px var(--edge), 0 14px 34px -14px rgb(30 41 82 / 0.22);
+  --shadow-raise: 0 0 0 1px var(--edge), 0 10px 24px -10px rgb(30 41 82 / 0.25);
+  --shadow-control: 0 0 0 1px var(--border-strong), 0 2px 6px -2px rgb(30 41 82 / 0.14);
+  --shadow-primary: 0 8px 22px -8px var(--glow), inset 0 1px 0 rgb(255 255 255 / 0.2);
+  --shadow-pop: 0 0 0 1px var(--edge), 0 26px 64px -18px rgb(30 41 82 / 0.38);
+  --shadow-inset: inset 0 0 0 1px var(--border), inset 0 2px 6px rgb(30 41 82 / 0.06);
+  --shadow-inset-sm: inset 0 0 0 1px var(--border-strong), inset 0 1px 3px rgb(30 41 82 / 0.06);
+
+  --font-display: 'Space Grotesk Variable', 'Inter Variable', system-ui, sans-serif;
+
+  /* Crisper corners than the soft style's pillows. */
+  --radius-3xl: 1.125rem;
+  --radius-2xl: 0.875rem;
+}
+
+[data-style='futuristic'][data-theme='dark'] {
+  --plane: #05070f;
+  --plane-image:
+    linear-gradient(var(--plane-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--plane-grid) 1px, transparent 1px),
+    radial-gradient(56rem 38rem at 14% 2%, rgb(34 211 238 / 0.26), transparent 62%),
+    radial-gradient(52rem 38rem at 90% 6%, rgb(139 92 246 / 0.34), transparent 62%),
+    radial-gradient(48rem 34rem at 55% 108%, rgb(59 130 246 / 0.24), transparent 62%);
+  --plane-size: 36px 36px, 36px 36px, auto, auto, auto;
+  --plane-grid: rgb(148 163 255 / 0.06);
+
+  --surface-1: rgb(15 20 38 / 0.62);
+  --surface-2: rgb(24 31 58 / 0.7);
+  --surface-3: rgb(34 43 78 / 0.8);
+  --surface-pop: rgb(13 17 34);
+
+  --text-primary: #eef2ff;
+  --text-secondary: #b6bfda;
+  --text-muted: #8791ae;
+
+  --border: rgb(148 163 255 / 0.12);
+  --border-strong: rgb(148 163 255 / 0.26);
+  --edge: rgb(148 163 255 / 0.17);
+  --grid: rgb(148 163 255 / 0.1);
+  --baseline: rgb(148 163 255 / 0.26);
+
+  --brand: #8d9dff;
+  --brand-strong: #a8b4ff;
+  --brand-soft: rgb(124 140 255 / 0.15);
+  --glow: rgb(124 92 255 / 0.6);
+
+  --neu-dark: rgb(0 0 0 / 0.6);
+
+  --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 0 0 1px var(--edge), 0 18px 44px -18px rgb(0 0 0 / 0.75);
+  --shadow-raise: 0 0 0 1px var(--edge), 0 12px 30px -12px rgb(0 0 0 / 0.7);
+  --shadow-control: 0 0 0 1px var(--border-strong), 0 4px 14px -6px rgb(0 0 0 / 0.6);
+  --shadow-primary: 0 0 26px -4px var(--glow), inset 0 1px 0 rgb(255 255 255 / 0.2);
+  --shadow-pop: 0 0 0 1px var(--edge), 0 30px 80px -20px rgb(0 0 0 / 0.85), 0 0 60px -24px var(--glow);
+  --shadow-inset: inset 0 0 0 1px var(--border), inset 0 2px 10px rgb(0 0 0 / 0.35);
+  --shadow-inset-sm: inset 0 0 0 1px var(--border-strong), inset 0 1px 6px rgb(0 0 0 / 0.3);
 }
 
 @theme inline {
@@ -92,6 +219,7 @@
   --color-surface: var(--surface-1);
   --color-surface-2: var(--surface-2);
   --color-surface-3: var(--surface-3);
+  --color-surface-pop: var(--surface-pop);
 
   --color-ink: var(--text-primary);
   --color-ink-2: var(--text-secondary);
@@ -101,6 +229,7 @@
   --color-line-strong: var(--border-strong);
 
   --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
   --color-brand-ink: var(--brand-ink);
   --color-brand-soft: var(--brand-soft);
 
@@ -112,7 +241,7 @@
   --color-up: var(--delta-up);
   --color-down: var(--delta-down);
 
-  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 html,
@@ -121,12 +250,19 @@ body,
   height: 100%;
 }
 
+/* Inter is bundled with the app rather than fetched, so it works offline.
+   cv11 is the single-storey a, which reads cleaner at small sizes. */
 body {
   margin: 0;
-  background: var(--plane);
+  background-color: var(--plane);
+  background-image: var(--plane-image);
+  background-size: var(--plane-size);
+  background-attachment: fixed;
   color: var(--text-primary);
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
+  font-feature-settings: 'cv11';
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Numbers that sit in columns must align; standalone figures keep the
@@ -138,7 +274,17 @@ body {
 *:focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
-  border-radius: 6px;
+  border-radius: 8px;
+}
+
+/* Headings run slightly tight, as Inter is drawn for. The display face is
+   Inter in the soft style and Space Grotesk in the futuristic one. */
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.015em;
 }
 
 ::selection {
@@ -169,7 +315,7 @@ body {
 .recharts-default-tooltip {
   background: var(--surface-1) !important;
   border: 1px solid var(--border) !important;
-  border-radius: 10px !important;
+  border-radius: 12px !important;
   box-shadow: var(--shadow-pop);
 }
 .recharts-surface:focus {

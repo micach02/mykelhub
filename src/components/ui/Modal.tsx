@@ -46,7 +46,7 @@ export function Modal({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-6">
       <div
-        className="fixed inset-0 bg-black/45 backdrop-blur-[2px]"
+        className="fixed inset-0 bg-[rgb(10_12_16/0.45)] backdrop-blur-sm"
         onClick={onClose}
         aria-hidden
       />
@@ -57,14 +57,14 @@ export function Modal({
         aria-label={title}
         tabIndex={-1}
         className={cn(
-          'animate-fade-up relative my-auto w-full rounded-xl border border-line bg-surface shadow-[var(--shadow-pop)] outline-none',
+          'animate-fade-up relative my-auto w-full rounded-3xl border border-(--edge) bg-surface shadow-(--shadow-pop) backdrop-blur-2xl outline-none',
           widths[size],
         )}
       >
         <header className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
           <div>
-            <h2 className="text-base font-semibold text-ink">{title}</h2>
-            {description ? <p className="mt-1 text-[13px] text-ink-2">{description}</p> : null}
+            <h2 className="text-[17px] font-semibold text-ink">{title}</h2>
+            {description ? <p className="mt-1 text-[13px] text-muted">{description}</p> : null}
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close dialog">
             <X size={18} />
@@ -74,7 +74,7 @@ export function Modal({
         <div className="px-5 py-5">{children}</div>
 
         {footer ? (
-          <footer className="flex items-center justify-end gap-2 border-t border-line bg-surface-2/60 px-5 py-3.5">
+          <footer className="flex items-center justify-end gap-2.5 rounded-b-3xl border-t border-line px-5 py-4">
             {footer}
           </footer>
         ) : null}

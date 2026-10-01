@@ -11,7 +11,7 @@ export function Card({
   return (
     <section
       className={cn(
-        'rounded-xl border border-line bg-surface shadow-[var(--shadow-card)]',
+        'rounded-3xl border border-(--edge) bg-surface shadow-(--shadow-card) backdrop-blur-xl',
         className,
       )}
     >
@@ -40,7 +40,7 @@ export function CardHeader({
     >
       <div className="min-w-0">
         <h2 className="text-[15px] leading-tight font-semibold text-ink">{title}</h2>
-        {subtitle ? <p className="mt-1 text-[13px] text-ink-2">{subtitle}</p> : null}
+        {subtitle ? <p className="mt-1 text-[13px] text-muted">{subtitle}</p> : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </header>

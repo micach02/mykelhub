@@ -53,7 +53,7 @@ function ToastRow({ item }: { item: Toast }) {
 
   return (
     <div
-      className="animate-slide-in flex w-80 items-start gap-2.5 rounded-lg border border-line bg-surface p-3 shadow-[var(--shadow-pop)]"
+      className="animate-slide-in flex w-80 items-start gap-2.5 rounded-2xl border border-(--edge) bg-surface-pop p-3.5 shadow-(--shadow-pop)"
       role="status"
     >
       <Icon size={17} style={{ color: ACCENTS[item.tone] }} className="mt-px shrink-0" aria-hidden />

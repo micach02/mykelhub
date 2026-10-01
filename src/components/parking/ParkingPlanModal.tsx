@@ -80,7 +80,7 @@ export function ParkingPlanModal({
     >
       <div className="flex flex-col gap-4">
         {customer ? (
-          <div className="rounded-lg border border-line bg-surface-2 px-3.5 py-2.5">
+          <div className="rounded-2xl bg-surface shadow-(--shadow-inset-sm) px-3.5 py-2.5">
             <p className="text-[12px] text-ink-2">Customer</p>
             <p className="text-[14px] font-semibold text-ink">{customer.name}</p>
           </div>
@@ -134,7 +134,7 @@ export function ParkingPlanModal({
         </Field>
 
         {customers.length === 0 ? (
-          <p className="rounded-lg border border-line bg-surface-2 px-3.5 py-2.5 text-[12.5px] text-ink-2">
+          <p className="rounded-2xl bg-surface shadow-(--shadow-inset-sm) px-3.5 py-2.5 text-[12.5px] text-ink-2">
             Add a customer on the Credit page first. Parking is a fee a customer owes, so it needs
             someone to belong to.
           </p>

@@ -39,7 +39,7 @@ export function Th({
       scope="col"
       aria-sort={active ? (direction === 'asc' ? 'ascending' : 'descending') : undefined}
       className={cn(
-        'sticky top-0 z-10 border-b border-line bg-surface px-4 py-2.5 text-[12px] font-semibold tracking-wide text-ink-2 uppercase',
+        'sticky top-0 z-10 border-b border-line bg-surface px-3 py-3 first:pl-5 last:pr-5 text-[11.5px] font-semibold tracking-wider whitespace-nowrap text-muted uppercase',
         alignment,
         className,
       )}
@@ -49,8 +49,10 @@ export function Th({
         <button
           type="button"
           onClick={onSort}
+          // Buttons reset text-transform, so the heading's capitals are restated
+          // here or sortable columns read differently from the rest.
           className={cn(
-            'inline-flex items-center gap-1 rounded transition-colors hover:text-ink',
+            'inline-flex items-center gap-1 rounded tracking-wider uppercase transition-colors hover:text-ink',
             align === 'right' && 'flex-row-reverse',
             active && 'text-ink',
           )}
@@ -92,7 +94,7 @@ export function Td({
     <td
       colSpan={colSpan}
       className={cn(
-        'border-b border-line px-4 py-3 align-middle text-ink',
+        'border-b border-line px-3 py-3.5 align-middle text-ink first:pl-5 last:pr-5',
         alignment,
         numeric && 'tnum',
         className,
@@ -117,7 +119,7 @@ export function Tr({
       onClick={onClick}
       className={cn(
         'transition-colors last:[&>td]:border-b-0',
-        onClick && 'cursor-pointer hover:bg-surface-2',
+        onClick && 'cursor-pointer hover:bg-surface-2/80',
         className,
       )}
     >

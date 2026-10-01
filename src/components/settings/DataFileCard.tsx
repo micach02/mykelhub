@@ -57,7 +57,7 @@ export function DataFileCard() {
           </p>
         ) : (
           <>
-            <div className="rounded-lg border border-line bg-surface-2 px-4 py-3">
+            <div className="rounded-2xl bg-surface shadow-(--shadow-inset-sm) px-4 py-3">
               {connected ? (
                 <>
                   <p className="flex items-center gap-2 text-[13px] font-medium text-ink">

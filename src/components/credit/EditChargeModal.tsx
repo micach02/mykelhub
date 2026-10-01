@@ -166,7 +166,7 @@ export function EditChargeModal({ sale, onClose }: { sale: Sale | null; onClose:
       }
     >
       <div className="flex flex-col gap-4">
-        <ul className="divide-y divide-line rounded-lg border border-line">
+        <ul className="divide-y divide-line rounded-2xl shadow-(--shadow-inset-sm)">
           {lines.map((line) => {
             const shelf = shelfPrice(line.productId)
             const typed = prices[line.productId] ?? String(line.unitPrice)
@@ -184,8 +184,8 @@ export function EditChargeModal({ sale, onClose }: { sale: Sale | null; onClose:
                       onChange={(e) => setPrice(line.productId, e.target.value)}
                       aria-label={'Price of ' + line.name}
                       className={cn(
-                        'tnum h-7 w-22 [appearance:textfield] rounded-md border bg-surface px-2 text-[12.5px] text-ink hover:border-line-strong focus:border-brand focus:ring-2 focus:ring-(--brand)/25 focus:outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
-                        Number(typed) > 0 ? 'border-line' : 'border-critical',
+                        'tnum h-7 w-22 [appearance:textfield] rounded-lg border bg-surface px-2 text-[12.5px] text-ink shadow-(--shadow-inset-sm) focus:ring-2 focus:ring-brand/45 focus:outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
+                        Number(typed) > 0 ? 'border-transparent' : 'border-critical',
                       )}
                     />
                     <span>each</span>
@@ -253,7 +253,7 @@ export function EditChargeModal({ sale, onClose }: { sale: Sale | null; onClose:
           <div className="relative">
             <Search
               size={15}
-              className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted"
+              className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-muted"
               aria-hidden
             />
             <input
@@ -262,16 +262,16 @@ export function EditChargeModal({ sale, onClose }: { sale: Sale | null; onClose:
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Add another item"
               aria-label="Add another item"
-              className="h-9.5 w-full rounded-lg border border-line bg-surface pr-3 pl-9 text-sm text-ink placeholder:text-muted hover:border-line-strong focus:border-brand focus:ring-2 focus:ring-(--brand)/25 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+              className="h-10 w-full rounded-xl border-0 bg-surface pr-3 pl-9.5 text-sm text-ink shadow-(--shadow-inset-sm) placeholder:text-muted focus:ring-2 focus:ring-brand/45 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
             />
           </div>
           {matches.length > 0 ? (
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            <div className="mt-2 flex flex-wrap gap-2 p-0.5">
               {matches.map((p) => (
                 <button
                   key={p.id}
                   onClick={() => addLine(p.id)}
-                  className="flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-[12.5px] text-ink-2 transition-colors hover:border-brand hover:text-ink"
+                  className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] text-ink-2 shadow-(--shadow-control) transition-colors hover:text-ink"
                 >
                   <span className="font-medium">{p.name}</span>
                   <span className="tnum text-muted">{fmt.money(p.price)}</span>

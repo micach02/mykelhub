@@ -11,7 +11,7 @@ import { useStore } from '../store/useStore'
 import { normalisePaymentMethod } from '../lib/labels'
 import { DataFileCard } from '../components/settings/DataFileCard'
 import { CloudCard } from '../components/settings/CloudCard'
-import type { ThemePreference } from '../types'
+import { DEFAULT_UI_STYLE, type ThemePreference, type UiStyle } from '../types'
 
 const CURRENCIES = ['PHP', 'USD', 'SGD', 'AED', 'HKD']
 const LOCALES = [
@@ -227,18 +227,32 @@ export function Settings() {
                 />
               )}
             </Field>
-            <div>
-              <p className="mb-1.5 text-[13px] font-medium text-ink-2">Appearance</p>
-              <SegmentedControl
-                ariaLabel="Theme"
-                value={settings.theme}
-                onChange={(theme: ThemePreference) => updateSettings({ theme })}
-                segments={[
-                  { value: 'light', label: 'Light' },
-                  { value: 'dark', label: 'Dark' },
-                  { value: 'system', label: 'System' },
-                ]}
-              />
+            <div className="flex flex-wrap gap-x-6 gap-y-4">
+              <div>
+                <p className="mb-1.5 text-[13px] font-medium text-ink-2">Appearance</p>
+                <SegmentedControl
+                  ariaLabel="Theme"
+                  value={settings.theme}
+                  onChange={(theme: ThemePreference) => updateSettings({ theme })}
+                  segments={[
+                    { value: 'light', label: 'Light' },
+                    { value: 'dark', label: 'Dark' },
+                    { value: 'system', label: 'System' },
+                  ]}
+                />
+              </div>
+              <div>
+                <p className="mb-1.5 text-[13px] font-medium text-ink-2">Style</p>
+                <SegmentedControl
+                  ariaLabel="Style"
+                  value={settings.style ?? DEFAULT_UI_STYLE}
+                  onChange={(style: UiStyle) => updateSettings({ style })}
+                  segments={[
+                    { value: 'futuristic', label: 'Futuristic' },
+                    { value: 'soft', label: 'Soft' },
+                  ]}
+                />
+              </div>
             </div>
           </CardBody>
         </Card>
@@ -264,7 +278,7 @@ export function Settings() {
               ['Stock movements', counts.movements],
               ['Vault entries', counts.vault],
             ].map(([label, count]) => (
-              <div key={label} className="rounded-lg border border-line bg-surface-2 px-3.5 py-3">
+              <div key={label} className="rounded-2xl bg-surface shadow-(--shadow-inset-sm) px-3.5 py-3">
                 <dt className="text-[12px] text-ink-2">{label}</dt>
                 <dd className="tnum mt-0.5 text-[18px] font-semibold text-ink">{count}</dd>
               </div>
