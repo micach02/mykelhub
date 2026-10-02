@@ -74,7 +74,9 @@ export function Modal({
         <div className="px-5 py-5">{children}</div>
 
         {footer ? (
-          <footer className="flex items-center justify-end gap-2.5 rounded-b-3xl border-t border-line px-5 py-4">
+          // On a phone the buttons wrap and share each row, rather than running
+          // off the edge of the dialog when there are three of them.
+          <footer className="flex flex-wrap items-center justify-end gap-2.5 rounded-b-3xl border-t border-line px-5 py-4 max-sm:[&>button]:grow max-sm:[&>button]:justify-center">
             {footer}
           </footer>
         ) : null}
