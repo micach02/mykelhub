@@ -26,6 +26,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+        env:
+          # Optional. Set these as repository variables (Settings, Secrets and
+          # variables, Actions, Variables) to build your Supabase project in, so
+          # a new device opens straight to the email and password. The anon key
+          # is public by design; the row-level security policy keeps data
+          # private. Left unset, the project is entered on each device instead.
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

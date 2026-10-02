@@ -4,9 +4,11 @@ Store management for a small sari-sari store. Four jobs: track **who owes you**,
 collect the **parking fees**, keep the **inventory** straight, and show
 **reports**.
 
-Everything runs in the browser. No server, no database, no login, no internet
-needed after the first load. The whole store lives in `localStorage` and can be
-exported to a JSON file.
+Everything runs in the browser. The whole store lives in `localStorage` and can
+be exported to a JSON file. Connected to a free Supabase project, it opens on a
+**login page**: sign in with email and password and the same store is on your
+phone and your computer. Without a project it works on one device, with no
+login and no internet needed after the first load.
 
 There is deliberately **no point of sale**. A small store does not ring up a ₱9
 sachet on a register — it needs to remember who owes what.
@@ -325,7 +327,7 @@ missing from a file written by an older build fall back to their defaults.
 ## Cloud sync
 
 To use MykelHub on a phone and a computer with the same data, connect it to a
-free Supabase project under **Settings → Cloud sync**. Setup, once:
+free Supabase project. Setup, once:
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. In the SQL editor, run [supabase/schema.sql](supabase/schema.sql). A
@@ -334,7 +336,8 @@ free Supabase project under **Settings → Cloud sync**. Setup, once:
    [supabase/verify.sql](supabase/verify.sql), which should report "yes"
    on every row.
 3. In the project's **Settings**, copy the URL from **Data API** and the
-   public key from **API Keys**, and paste both into Settings → Cloud sync.
+   public key from **API Keys**. The app asks for both on its login page the
+   first time a device opens it (they can also go in Settings → Cloud sync).
    (Older Supabase dashboards had these together under Settings → API.)
 4. Create the single account. The least fiddly way is in Supabase under
    **Authentication → Users → Add user**, ticking **Auto Confirm User** —
@@ -353,8 +356,26 @@ secret key here**: it ignores row-level security, so in a static site it would
 hand every visitor the whole database. The app checks which key was pasted and
 refuses a `service_role` or `sb_secret_` one outright.
 
-The project details are entered in the app rather than built in, so they stay
-out of the repository. `.env.example` shows the build-time alternative.
+### Signing in
+
+With a project known to the device, the app opens on the login page until
+someone signs in; signing in loads the store from the cloud and keeps it in
+step from then on. **First time here? Create the account** on the same page
+makes the account instead. The sidebar shows who is signed in, whether the
+store is in sync, and a sign-out button. Signing out leaves the data on the
+device and returns to the login page.
+
+A device that has signed in before still opens when the connection is down:
+edits are kept on the device and go up once it is back, rather than the owner
+being locked out of their own store. A device with no project shows a connect
+step instead, with **Use on this device only** for working without the cloud.
+
+The project details are entered on each device rather than built in, so they
+stay out of the repository. To skip that step on new devices, build the
+project in: set the repository variables `VITE_SUPABASE_URL` and
+`VITE_SUPABASE_ANON_KEY` under **Settings → Secrets and variables → Actions →
+Variables**, and the GitHub Pages build picks them up. `.env.example` shows the
+same for a local build.
 
 **The anon key is public.** A static site cannot hide it, and it is not meant
 to be hidden. What keeps the data private is the row-level security policy in

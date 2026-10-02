@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import {
   BarChart3,
   Banknote,
@@ -6,6 +6,7 @@ import {
   CarFront,
   HardDrive,
   LayoutDashboard,
+  LogOut,
   NotebookPen,
   Settings as SettingsIcon,
   X,
@@ -13,6 +14,9 @@ import {
 import { cn, plural } from '../../lib/utils'
 import { useStore } from '../../store/useStore'
 import { ageBucket, buildAccounts, lowStock } from '../../lib/analytics'
+import { useCloudSync, type CloudState } from '../../lib/cloudSync'
+import { toast } from '../ui/Toast'
+import { BrandMark } from './BrandMark'
 
 interface NavItem {
   to: string
@@ -20,6 +24,15 @@ interface NavItem {
   sublabel: string
   icon: typeof Boxes
   badge?: 'credit' | 'lowStock' | 'parking'
+}
+
+/** How the account's sync reads at a glance, and the colour of its dot. */
+const SYNC_STATUS: Partial<Record<CloudState, [string, string]>> = {
+  ready: ['In sync', 'var(--status-good)'],
+  syncing: ['Syncing…', 'var(--brand)'],
+  offline: ['Offline, saved here', 'var(--status-warning)'],
+  conflict: ['Needs a decision in Settings', 'var(--status-warning)'],
+  error: ['Sync problem, see Settings', 'var(--status-critical)'],
 }
 
 const ITEMS: NavItem[] = [
@@ -38,6 +51,10 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   const sales = useStore((s) => s.sales)
   const payments = useStore((s) => s.payments)
   const storeName = useStore((s) => s.settings.storeName)
+  const email = useCloudSync((s) => s.email)
+  const cloudState = useCloudSync((s) => s.state)
+  const signOut = useCloudSync((s) => s.signOut)
+  const [syncLabel, syncColor] = SYNC_STATUS[cloudState] ?? ['Signed in', 'var(--text-muted)']
 
   const accounts = [...buildAccounts(customers, sales, payments).values()]
   const lowCount = lowStock(products).length
@@ -60,13 +77,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
       >
         <div className="flex h-16 items-center justify-between gap-2 px-4">
           <div className="flex min-w-0 items-center gap-3">
-            <span
-              className="font-display grid size-10 shrink-0 place-items-center rounded-2xl text-[16px] font-bold text-white shadow-(--shadow-primary)"
-              style={{ background: 'linear-gradient(135deg, var(--brand), var(--series-7))' }}
-              aria-hidden
-            >
-              M
-            </span>
+            <BrandMark />
             <div className="min-w-0">
               <p className="truncate text-[15px] leading-tight font-semibold tracking-tight text-ink">
                 MykelHub
@@ -147,12 +158,48 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         </nav>
 
         <div className="p-3">
-          <div className="flex gap-2.5 rounded-2xl p-3.5 shadow-(--shadow-inset-sm)">
-            <HardDrive size={15} className="mt-px shrink-0 text-muted" aria-hidden />
-            <p className="text-[11.5px] leading-relaxed text-ink-2">
-              Data is stored in this browser. Export a backup from Settings.
-            </p>
-          </div>
+          {email ? (
+            // Who is signed in and whether the store is in step with the cloud.
+            <div className="flex items-center gap-2.5 rounded-2xl p-3 shadow-(--shadow-inset-sm)">
+              <span
+                className="font-display grid size-8 shrink-0 place-items-center rounded-full bg-brand-soft text-[13px] font-semibold text-brand uppercase"
+                aria-hidden
+              >
+                {email.charAt(0)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[12.5px] font-medium text-ink" title={email}>
+                  {email}
+                </p>
+                <p className="flex items-center gap-1.5 text-[11px] text-muted">
+                  <span className="size-1.5 shrink-0 rounded-full" style={{ background: syncColor }} />
+                  {syncLabel}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  await signOut()
+                  toast.info('Signed out. The data stays on this device.')
+                }}
+                aria-label="Sign out"
+                title="Sign out"
+                className="grid size-8 shrink-0 place-items-center rounded-full text-muted transition-[color,box-shadow] hover:text-ink hover:shadow-(--shadow-control)"
+              >
+                <LogOut size={15} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2.5 rounded-2xl p-3.5 shadow-(--shadow-inset-sm)">
+              <HardDrive size={15} className="mt-px shrink-0 text-muted" aria-hidden />
+              <p className="text-[11.5px] leading-relaxed text-ink-2">
+                Data is stored in this browser.{' '}
+                <Link to="/login" onClick={onClose} className="font-medium text-brand hover:underline">
+                  Sign in to sync it across devices.
+                </Link>
+              </p>
+            </div>
+          )}
         </div>
       </aside>
     </>

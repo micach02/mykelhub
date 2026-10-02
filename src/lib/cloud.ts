@@ -30,6 +30,21 @@ export function readConfig(): CloudConfig | null {
   }
 }
 
+/**
+ * Where the project came from: saved on this device, which can be changed
+ * from the app, or built in, which only a new build can change.
+ */
+export function configSource(): 'saved' | 'built-in' | null {
+  try {
+    const raw = localStorage.getItem(CONFIG_KEY)
+    const parsed = raw ? (JSON.parse(raw) as Partial<CloudConfig>) : null
+    if (parsed?.url && parsed.anonKey) return 'saved'
+  } catch {
+    /* storage unavailable or unreadable: fall through to the build */
+  }
+  return fromEnv() ? 'built-in' : null
+}
+
 /** A project baked in at build time, for anyone who prefers it that way. */
 function fromEnv(): CloudConfig | null {
   const url = import.meta.env.VITE_SUPABASE_URL

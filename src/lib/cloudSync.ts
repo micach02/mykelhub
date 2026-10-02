@@ -16,6 +16,7 @@ import {
 
 export type CloudState =
   | 'off' // no project configured
+  | 'starting' // a project is configured; checking for a saved sign-in
   | 'signed-out'
   | 'syncing'
   | 'ready'
@@ -29,6 +30,8 @@ interface CloudSyncState {
   lastSyncedAt: string | null
   pendingCount: number
   message: string | null
+  /** Chosen on the login page: work on this device without a cloud project. */
+  localOnly: boolean
 
   configure: (config: CloudConfig) => Promise<void>
   disconnect: () => Promise<void>
@@ -37,6 +40,7 @@ interface CloudSyncState {
   signOut: () => Promise<void>
   syncNow: () => Promise<void>
   resolveConflict: (keep: 'cloud' | 'device') => Promise<void>
+  chooseLocalOnly: () => void
 }
 
 /** Collections edited since the last successful sync. */
@@ -47,6 +51,9 @@ let timer: ReturnType<typeof setTimeout> | null = null
 let applying = false
 
 const SYNCED_AT_KEY = 'mykelhub.cloud.syncedAt'
+/** Who last signed in here, so the store still opens when the network does not. */
+const ACCOUNT_KEY = 'mykelhub.cloud.account'
+const LOCAL_ONLY_KEY = 'mykelhub.localOnly'
 
 /**
  * Supabase's auth errors are short and assume you know your way around the
@@ -93,6 +100,45 @@ function writeSyncedAt(at: string | null): void {
   }
 }
 
+function readAccount(): string | null {
+  try {
+    return localStorage.getItem(ACCOUNT_KEY)
+  } catch {
+    return null
+  }
+}
+function writeAccount(email: string | null): void {
+  try {
+    if (email) localStorage.setItem(ACCOUNT_KEY, email)
+    else localStorage.removeItem(ACCOUNT_KEY)
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+function readLocalOnly(): boolean {
+  try {
+    return localStorage.getItem(LOCAL_ONLY_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+function writeLocalOnly(on: boolean): void {
+  try {
+    if (on) localStorage.setItem(LOCAL_ONLY_KEY, '1')
+    else localStorage.removeItem(LOCAL_ONLY_KEY)
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+/** A failure to reach the project, as opposed to the project saying no. */
+function isNetworkError(error: unknown): boolean {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return true
+  const message = error instanceof Error ? error.message : String((error as { message?: string })?.message ?? '')
+  return /fetch|network|load failed|timed? ?out/i.test(message)
+}
+
 function applyRemote(rows: Parameters<typeof rowsToSnapshot>[0]): void {
   const merged = rowsToSnapshot(rows, useStore.getState().snapshot())
   applying = true
@@ -102,11 +148,12 @@ function applyRemote(rows: Parameters<typeof rowsToSnapshot>[0]): void {
 }
 
 export const useCloudSync = create<CloudSyncState>((set, get) => ({
-  state: readConfig() ? 'signed-out' : 'off',
+  state: readConfig() ? 'starting' : 'off',
   email: null,
   lastSyncedAt: readSyncedAt(),
   pendingCount: 0,
   message: null,
+  localOnly: readLocalOnly(),
 
   configure: async (config) => {
     watchStore()
@@ -122,10 +169,19 @@ export const useCloudSync = create<CloudSyncState>((set, get) => ({
     if (supabase) await supabase.auth.signOut().catch(() => undefined)
     writeConfig(null)
     writeSyncedAt(null)
+    writeAccount(null)
+    writeLocalOnly(true)
     resetClient()
     ownerId = null
     dirty.clear()
-    set({ state: 'off', email: null, lastSyncedAt: null, pendingCount: 0, message: null })
+    set({
+      state: 'off',
+      email: null,
+      lastSyncedAt: null,
+      pendingCount: 0,
+      message: null,
+      localOnly: true,
+    })
   },
 
   signIn: async (email, password) => {
@@ -141,6 +197,7 @@ export const useCloudSync = create<CloudSyncState>((set, get) => ({
       return false
     }
     ownerId = data.user.id
+    writeAccount(data.user.email ?? email)
     set({ email: data.user.email ?? email })
     await get().syncNow()
     return true
@@ -165,6 +222,7 @@ export const useCloudSync = create<CloudSyncState>((set, get) => ({
       return false
     }
     ownerId = data.user?.id ?? null
+    writeAccount(data.user?.email ?? email)
     set({ email: data.user?.email ?? email })
     await get().syncNow()
     return true
@@ -174,6 +232,7 @@ export const useCloudSync = create<CloudSyncState>((set, get) => ({
     const supabase = await getClient()
     if (supabase) await supabase.auth.signOut().catch(() => undefined)
     ownerId = null
+    writeAccount(null)
     dirty.clear()
     set({ state: 'signed-out', email: null, pendingCount: 0, message: null })
   },
@@ -260,24 +319,58 @@ export const useCloudSync = create<CloudSyncState>((set, get) => ({
       set({ state: 'error', message: error instanceof Error ? error.message : 'Sync failed.' })
     }
   },
+
+  chooseLocalOnly: () => {
+    writeLocalOnly(true)
+    set({ localOnly: true })
+  },
 }))
 
 type Setter = (partial: Partial<CloudSyncState>) => void
 
+/**
+ * Picks up a saved sign-in. When the project cannot be reached, someone who
+ * signed in here before keeps working offline rather than being locked out of
+ * their own store; their edits wait and go up once the connection is back.
+ */
 async function restoreSession(set: Setter): Promise<void> {
-  const supabase = await getClient()
-  if (!supabase) {
-    set({ state: 'off' })
-    return
+  const offline = () => {
+    const known = readAccount()
+    if (known) {
+      set({
+        state: 'offline',
+        email: known,
+        message: 'No connection. Changes are kept on this device and go up when you are back online.',
+      })
+      return true
+    }
+    return false
   }
-  const { data } = await supabase.auth.getSession()
-  if (!data.session?.user) {
-    set({ state: 'signed-out' })
-    return
+
+  try {
+    const supabase = await getClient()
+    if (!supabase) {
+      set({ state: 'off' })
+      return
+    }
+    const { data, error } = await supabase.auth.getSession()
+    if (data.session?.user) {
+      ownerId = data.session.user.id
+      writeAccount(data.session.user.email ?? null)
+      set({ email: data.session.user.email ?? null })
+      await useCloudSync.getState().syncNow()
+      return
+    }
+    if (error && isNetworkError(error) && offline()) return
+    set({ state: 'signed-out', email: null })
+  } catch (error) {
+    if (isNetworkError(error) && offline()) return
+    set({
+      state: 'signed-out',
+      email: null,
+      message: 'Could not reach the cloud. Check the connection, then sign in.',
+    })
   }
-  ownerId = data.session.user.id
-  set({ email: data.session.user.email ?? null })
-  await useCloudSync.getState().syncNow()
 }
 
 let watching = false
@@ -304,7 +397,9 @@ function watchStore(): void {
     // Still kept, just not sent yet: they go up on sign-in, or once the
     // conflict is settled.
     const { state: status } = useCloudSync.getState()
-    if (status === 'conflict' || status === 'signed-out' || status === 'off') return
+    if (status === 'conflict' || status === 'signed-out' || status === 'off' || status === 'starting') {
+      return
+    }
 
     if (timer) clearTimeout(timer)
     timer = setTimeout(() => {
@@ -312,10 +407,15 @@ function watchStore(): void {
     }, 1200)
   })
 
-  // Catch up as soon as the connection comes back.
+  // Catch up as soon as the connection comes back. A device that opened
+  // offline never got a session, so it picks one up first.
   if (typeof window !== 'undefined') {
     window.addEventListener('online', () => {
-      if (dirty.size > 0) void useCloudSync.getState().syncNow()
+      if (!ownerId && useCloudSync.getState().state === 'offline') {
+        void restoreSession((p) => useCloudSync.setState(p))
+      } else if (dirty.size > 0) {
+        void useCloudSync.getState().syncNow()
+      }
     })
   }
 }

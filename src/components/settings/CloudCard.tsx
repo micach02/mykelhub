@@ -69,6 +69,8 @@ export function CloudCard() {
             </Badge>
           ) : state === 'syncing' ? (
             <Badge tone="brand">Syncing</Badge>
+          ) : state === 'starting' ? (
+            <Badge tone="brand">Connecting</Badge>
           ) : state === 'conflict' ? (
             <Badge tone="warning" icon={<AlertTriangle size={12} aria-hidden />}>
               Needs a decision
