@@ -9,7 +9,7 @@ import { CustomItemForm } from './CustomItemForm'
 import { useStore } from '../../store/useStore'
 import { useFormat } from '../../lib/useFormat'
 import { buildAccounts, vaultBalance } from '../../lib/analytics'
-import { cn } from '../../lib/utils'
+import { cn, uid } from '../../lib/utils'
 import type { ID, SaleItem, Settlement } from '../../types'
 
 export function RecordSaleModal({
@@ -39,6 +39,7 @@ export function RecordSaleModal({
   const [customerId, setCustomerId] = useState<string>(presetCustomerId ?? '')
   const [note, setNote] = useState('')
   const [vaultTopUp, setVaultTopUp] = useState('')
+  const [borrow, setBorrow] = useState('')
 
   useEffect(() => {
     if (!open) return
@@ -48,6 +49,7 @@ export function RecordSaleModal({
     setSettlement(presetSettlement)
     setCustomerId(presetCustomerId ?? '')
     setVaultTopUp('')
+    setBorrow('')
   }, [open, presetSettlement, presetCustomerId])
 
   const accounts = useMemo(
@@ -66,20 +68,30 @@ export function RecordSaleModal({
     return pool.sort((a, b) => a.name.localeCompare(b.name)).slice(0, q ? 30 : 12)
   }, [products, query])
 
-  const total = lines.reduce((sum, l) => sum + l.qty * l.unitPrice, 0)
+  const onCredit = settlement === 'credit'
+  const goods = lines.reduce((sum, l) => sum + l.qty * l.unitPrice, 0)
+  // On credit, a customer can also borrow cash from the vault. It goes on
+  // their account with the goods and comes straight out of the drawer.
+  const lent = onCredit ? Math.max(0, Math.round((Number(borrow) || 0) * 100) / 100) : 0
+  const total = goods + lent
 
   // Only a cash sale puts notes in the drawer. Maya never reaches it, and a
-  // credit sale has not been paid for yet.
+  // credit sale has not been paid for yet; cash lent comes out of it.
   const vaultNow = vaultBalance(vault)
   const extraToVault = Math.max(0, Number(vaultTopUp) || 0)
   const fromThisSale = settlement === 'cash' ? total : 0
-  const vaultAfter = vaultNow + fromThisSale + extraToVault
+  const vaultAfter = vaultNow + fromThisSale + extraToVault - lent
+  // There is only so much cash in the drawer to hand over.
+  const lendable = Math.max(0, vaultNow + extraToVault)
+  const overLent = lent > lendable
 
   // Putting cash in without selling anything is a plain vault entry, not a
-  // sale of nothing, so the dialog accepts it on its own.
+  // sale of nothing, so the dialog accepts it on its own. A loan with no
+  // goods is a charge all the same.
   const hasLines = lines.length > 0
-  const vaultOnly = !hasLines && extraToVault > 0
-  const canSubmit = hasLines || vaultOnly
+  const hasCharge = hasLines || lent > 0
+  const vaultOnly = !hasCharge && extraToVault > 0
+  const canSubmit = hasCharge || vaultOnly
 
   const customer = customers.find((c) => c.id === customerId)
   const account = customer ? accounts.get(customer.id) : undefined
@@ -87,7 +99,6 @@ export function RecordSaleModal({
 
   // Goods on credit can go out before the shelf count says they exist. Stock
   // drops below zero and the next restock or count settles it.
-  const onCredit = settlement === 'credit'
   const stockOf = (productId: ID) => products.find((p) => p.id === productId)?.stock ?? 0
   // Items typed in by hand are not on the shelf, so no count holds them back.
   const overStock = lines.find((l) => !l.custom && l.qty > stockOf(l.productId))
@@ -136,9 +147,13 @@ export function RecordSaleModal({
       onClose()
       return
     }
-    if (!hasLines) return
+    if (!hasCharge) return
     if (settlement === 'credit' && !customerId) {
       toast.error('Pick which customer this goes to.')
+      return
+    }
+    if (overLent) {
+      toast.error(`Only ${fmt.money(lendable)} in the vault to lend.`)
       return
     }
     if (!onCredit && overStock) {
@@ -150,8 +165,17 @@ export function RecordSaleModal({
       )
       return
     }
+    const cashLine: SaleItem = {
+      productId: uid('cash_'),
+      name: 'Cash borrowed',
+      qty: 1,
+      unitPrice: lent,
+      unitCost: lent,
+      custom: true,
+      cash: true,
+    }
     const sale = recordSale({
-      items: lines,
+      items: lent > 0 ? [...lines, cashLine] : lines,
       settlement,
       customerId: customerId || null,
       note: note.trim() || undefined,
@@ -159,7 +183,9 @@ export function RecordSaleModal({
     })
     toast.success(
       settlement === 'credit'
-        ? `${fmt.money(sale.total)} added to ${customer?.name ?? 'the account'}.`
+        ? `${fmt.money(sale.total)} added to ${customer?.name ?? 'the account'}${
+            lent > 0 ? `, including ${fmt.money(lent)} cash borrowed` : ''
+          }.`
         : `Sale recorded, ${fmt.money(sale.total)}.`,
     )
     onClose()
@@ -353,6 +379,27 @@ export function RecordSaleModal({
           )}
         </div>
 
+        {onCredit ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field
+              label="Cash borrowed"
+              error={overLent ? `Only ${fmt.money(lendable)} in the vault.` : undefined}
+              hint="Cash handed over from the vault. It goes on the account with the goods."
+            >
+              {(id) => (
+                <NumberInput
+                  id={id}
+                  min={0}
+                  step="50"
+                  value={borrow}
+                  onChange={(e) => setBorrow(e.target.value)}
+                  placeholder="0.00"
+                />
+              )}
+            </Field>
+          </div>
+        ) : null}
+
         {settlement === 'credit' && customer ? (
           <div className="rounded-2xl bg-surface shadow-(--shadow-inset-sm) px-3.5 py-2.5">
             <p className="text-[12.5px] leading-relaxed text-ink">
@@ -379,13 +426,15 @@ export function RecordSaleModal({
           </div>
 
           <p className="mt-2 text-[11.5px] leading-relaxed text-muted">
-            {!hasLines
-              ? 'No items picked. Put an amount in below to add cash to the vault on its own.'
-              : settlement === 'cash'
-                ? `${fmt.money(total)} in cash goes into the vault.`
-                : settlement === 'maya'
-                  ? 'Maya does not reach the drawer, so the vault is unchanged.'
-                  : 'Nothing has been paid yet, so the vault is unchanged.'}
+            {lent > 0
+              ? `${fmt.money(lent)} in cash comes out of the vault for ${customer?.name ?? 'the customer'} to borrow.`
+              : !hasLines
+                ? 'No items picked. Put an amount in below to add cash to the vault on its own.'
+                : settlement === 'cash'
+                  ? `${fmt.money(total)} in cash goes into the vault.`
+                  : settlement === 'maya'
+                    ? 'Maya does not reach the drawer, so the vault is unchanged.'
+                    : 'Nothing has been paid yet, so the vault is unchanged.'}
           </p>
 
           <div className="mt-3 border-t border-line pt-3">
@@ -408,7 +457,14 @@ export function RecordSaleModal({
         </div>
 
         <div className="flex items-baseline justify-between border-t border-line pt-3">
-          <span className="text-[14px] font-semibold text-ink">Total</span>
+          <span className="text-[14px] font-semibold text-ink">
+            Total
+            {lent > 0 && goods > 0 ? (
+              <span className="ml-2 text-[12px] font-normal text-muted">
+                {fmt.money(goods)} goods + {fmt.money(lent)} cash
+              </span>
+            ) : null}
+          </span>
           <span className="tnum text-[22px] font-semibold text-ink">{fmt.money(total)}</span>
         </div>
       </div>

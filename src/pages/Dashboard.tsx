@@ -28,6 +28,7 @@ import {
   ageBucket,
   buildAccounts,
   inventoryValue,
+  lineLabel,
   lowStock,
   parkingSummary,
   paymentsBetween,
@@ -391,7 +392,7 @@ export function Dashboard() {
                         <Td className="font-medium whitespace-nowrap">{sale.reference}</Td>
                         <Td className="text-ink-2">
                           <span className="line-clamp-1 text-[12.5px]">
-                            {sale.items.map((i) => `${i.qty} x ${i.name}`).join(', ')}
+                            {sale.items.map(lineLabel).join(', ')}
                           </span>
                         </Td>
                         <Td>

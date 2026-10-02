@@ -15,7 +15,7 @@ import type {
   VaultEntry,
 } from '../types'
 import { buildSeedData } from '../lib/seed'
-import { unpaidRepricing } from '../lib/analytics'
+import { cashLent, unpaidRepricing } from '../lib/analytics'
 import { uid } from '../lib/utils'
 
 const DEFAULT_SETTINGS: Settings = {
@@ -283,6 +283,10 @@ export const useStore = create<StoreState>()(
           createdAt,
         }
 
+        // Cash borrowed on a credit sale leaves the drawer as it is lent.
+        const lent = settlement === 'credit' ? cashLent(sale) : 0
+        const borrower = get().customers.find((c) => c.id === customerId)?.name
+
         set((s) => ({
           sales: [sale, ...s.sales],
           // Not floored at zero: a credit sale may take goods the count says
@@ -329,6 +333,17 @@ export const useStore = create<StoreState>()(
                   },
                 ]
               : []),
+            ...(lent > 0
+              ? [
+                  {
+                    id: uid('vlt_'),
+                    amount: -lent,
+                    reason: borrower ? `Cash lent to ${borrower}` : 'Cash lent',
+                    reference: sale.reference,
+                    createdAt,
+                  },
+                ]
+              : []),
             ...s.vault,
           ],
         }))
@@ -360,9 +375,10 @@ export const useStore = create<StoreState>()(
             })),
             ...s.movements,
           ],
-          // Cash taken for this sale comes back out of the drawer.
-          vault:
-            sale.settlement === 'cash'
+          // Cash taken for this sale comes back out of the drawer, and cash
+          // lent on it goes back in.
+          vault: [
+            ...(sale.settlement === 'cash'
               ? [
                   {
                     id: uid('vlt_'),
@@ -371,9 +387,21 @@ export const useStore = create<StoreState>()(
                     reference: sale.reference,
                     createdAt,
                   },
-                  ...s.vault,
                 ]
-              : s.vault,
+              : []),
+            ...(cashLent(sale) > 0
+              ? [
+                  {
+                    id: uid('vlt_'),
+                    amount: cashLent(sale),
+                    reason: 'Cash loan voided',
+                    reference: sale.reference,
+                    createdAt,
+                  },
+                ]
+              : []),
+            ...s.vault,
+          ],
         }))
       },
 
@@ -401,6 +429,8 @@ export const useStore = create<StoreState>()(
           const delta = (before.get(productId) ?? 0) - (after.get(productId) ?? 0)
           if (delta !== 0) deltas.set(productId, delta)
         }
+
+        const lentBack = round2(cashLent(sale) - cashLent({ items }))
 
         const updated: Sale = {
           ...sale,
@@ -431,9 +461,10 @@ export const useStore = create<StoreState>()(
             })),
             ...s.movements,
           ],
-          // A cash sale that changed value changes what is in the drawer too.
-          vault:
-            sale.settlement === 'cash' && total !== sale.total
+          // A cash sale that changed value changes what is in the drawer too,
+          // and so does a change to cash lent: less lent puts money back.
+          vault: [
+            ...(sale.settlement === 'cash' && total !== sale.total
               ? [
                   {
                     id: uid('vlt_'),
@@ -442,9 +473,21 @@ export const useStore = create<StoreState>()(
                     reference: sale.reference,
                     createdAt: editedAt,
                   },
-                  ...s.vault,
                 ]
-              : s.vault,
+              : []),
+            ...(lentBack !== 0
+              ? [
+                  {
+                    id: uid('vlt_'),
+                    amount: lentBack,
+                    reason: lentBack > 0 ? 'Cash loan reduced' : 'Cash loan increased',
+                    reference: sale.reference,
+                    createdAt: editedAt,
+                  },
+                ]
+              : []),
+            ...s.vault,
+          ],
         }))
       },
 

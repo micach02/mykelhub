@@ -5,6 +5,21 @@ import { paymentMethodLabel } from './labels'
 /** Voided sales stay in the log but count for nothing. */
 export const isLive = (s: Sale) => !s.voided
 
+/** Cash lent from the vault on a sale. It is owed back, but it was never sold. */
+export function cashLent(sale: Pick<Sale, 'items'>): number {
+  return Math.round(sale.items.reduce((sum, i) => (i.cash ? sum + i.unitPrice : sum), 0) * 100) / 100
+}
+
+/** What a sale actually sold, leaving out any cash lent with it. */
+export function goodsTotal(sale: Sale): number {
+  return Math.round((sale.total - cashLent(sale)) * 100) / 100
+}
+
+/** How a line reads in a list: "2 x Piattos", or just "Cash borrowed". */
+export function lineLabel(line: Pick<SaleItem, 'qty' | 'name' | 'cash'>): string {
+  return line.cash ? line.name : `${line.qty} x ${line.name}`
+}
+
 // ---------------------------------------------------------------------------
 // What a customer owes
 //
@@ -79,7 +94,7 @@ function goodsCharges(customerId: ID, sales: Sale[]): Charge[] {
       kind: 'goods',
       at: sale.createdAt,
       amount: sale.total,
-      label: sale.items.map((i) => `${i.qty} x ${i.name}`).join(', ') || 'Credit sale',
+      label: sale.items.map(lineLabel).join(', ') || 'Credit sale',
       sale,
     })
   }
@@ -230,8 +245,8 @@ export interface OutstandingCharge {
   paid: number
   /** What is still owed on it. */
   due: number
-  /** The goods on it, line by line. Empty for parking. */
-  items: Array<{ qty: number; name: string; unitPrice: number }>
+  /** The goods on it, line by line, and any cash lent. Empty for parking. */
+  items: Array<{ qty: number; name: string; unitPrice: number; cash?: boolean }>
 }
 
 /**
@@ -264,6 +279,7 @@ export function outstandingCharges(
         qty: line.qty,
         name: line.name,
         unitPrice: line.unitPrice,
+        cash: line.cash,
       })),
     }))
     .filter((row) => row.due > 0.001)
@@ -333,7 +349,7 @@ export interface AppliedTo {
   at: string
   description: string
   /** The goods themselves, so a receipt can list them rather than run them together. */
-  items: Array<{ qty: number; name: string }>
+  items: Array<{ qty: number; name: string; cash?: boolean }>
   chargeAmount: number
   /** How much of this payment went to this charge. */
   applied: number
@@ -377,6 +393,7 @@ export function paymentAllocation(
           items: (charges[i].sale?.items ?? []).map((line) => ({
             qty: line.qty,
             name: line.name,
+            cash: line.cash,
           })),
           chargeAmount: charges[i].amount,
           applied: take,
@@ -591,11 +608,16 @@ export function totals(sales: Sale[]): Totals {
 
   for (const sale of sales) {
     if (!isLive(sale)) continue
+    // Cash lent is owed back but was never sold, so it is not sales or profit,
+    // and a loan on its own is not a sale at all.
+    if (sale.items.length > 0 && sale.items.every((i) => i.cash)) continue
+    const goods = goodsTotal(sale)
     count++
-    revenue += sale.total
-    if (sale.settlement === 'credit') creditRevenue += sale.total
-    else cashRevenue += sale.total
+    revenue += goods
+    if (sale.settlement === 'credit') creditRevenue += goods
+    else cashRevenue += goods
     for (const item of sale.items) {
+      if (item.cash) continue
       cost += item.qty * item.unitCost
       units += item.qty
     }
@@ -633,9 +655,13 @@ export function seriesByDay(sales: Sale[], payments: Payment[], days: string[]):
     if (!isLive(sale)) continue
     const row = index.get(dayKey(sale.createdAt))
     if (!row) continue
-    row.revenue += sale.total
-    row.profit += sale.items.reduce((sum, i) => sum + i.qty * (i.unitPrice - i.unitCost), 0)
-    if (sale.settlement === 'credit') row.credit += sale.total
+    const goods = goodsTotal(sale)
+    row.revenue += goods
+    row.profit += sale.items.reduce(
+      (sum, i) => (i.cash ? sum : sum + i.qty * (i.unitPrice - i.unitCost)),
+      0,
+    )
+    if (sale.settlement === 'credit') row.credit += goods
   }
 
   for (const payment of payments) {
@@ -660,6 +686,7 @@ export function productPerformance(sales: Sale[]): ProductPerformance[] {
   for (const sale of sales) {
     if (!isLive(sale)) continue
     for (const item of sale.items) {
+      if (item.cash) continue
       // Each item typed in by hand has its own made-up id, so the same thing
       // sold twice is put together by its name instead.
       const key = item.custom ? `custom:${item.name.trim().toLowerCase()}` : item.productId
@@ -693,6 +720,7 @@ export function categoryPerformance(sales: Sale[], products: Product[]): Categor
   for (const sale of sales) {
     if (!isLive(sale)) continue
     for (const item of sale.items) {
+      if (item.cash) continue
       const category = item.custom
         ? 'Not in inventory'
         : (categoryOf.get(item.productId) ?? 'Uncategorized')

@@ -188,11 +188,11 @@ export function EditChargeModal({ sale, onClose }: { sale: Sale | null; onClose:
                         Number(typed) > 0 ? 'border-transparent' : 'border-critical',
                       )}
                     />
-                    <span>each</span>
+                    <span>{line.cash ? 'lent' : 'each'}</span>
                     {line.custom ? (
                       <>
                         <span aria-hidden>·</span>
-                        <span>not in inventory</span>
+                        <span>{line.cash ? 'cash from the vault' : 'not in inventory'}</span>
                       </>
                     ) : null}
                     {shelf !== undefined && line.unitPrice !== shelf ? (
@@ -209,26 +209,32 @@ export function EditChargeModal({ sale, onClose }: { sale: Sale | null; onClose:
                     ) : null}
                   </span>
                 </span>
-                <span className="flex items-center gap-1">
-                  <button
-                    onClick={() => setQty(line.productId, line.qty - 1)}
-                    disabled={line.qty <= 1}
-                    aria-label={'Less ' + line.name}
-                    className="grid size-6 place-items-center rounded border border-line text-ink-2 hover:bg-surface-2 disabled:opacity-40"
-                  >
-                    <Minus size={12} />
-                  </button>
-                  <span className="tnum w-7 text-center text-[13px] font-semibold text-ink">
-                    {line.qty}
+                {/* Cash lent is one amount, not a count. Changing it, or removing it,
+                    moves the vault by the difference when the charge is saved. */}
+                {line.cash ? (
+                  <span className="w-[84px]" aria-hidden />
+                ) : (
+                  <span className="flex items-center gap-1">
+                    <button
+                      onClick={() => setQty(line.productId, line.qty - 1)}
+                      disabled={line.qty <= 1}
+                      aria-label={'Less ' + line.name}
+                      className="grid size-6 place-items-center rounded border border-line text-ink-2 hover:bg-surface-2 disabled:opacity-40"
+                    >
+                      <Minus size={12} />
+                    </button>
+                    <span className="tnum w-7 text-center text-[13px] font-semibold text-ink">
+                      {line.qty}
+                    </span>
+                    <button
+                      onClick={() => setQty(line.productId, line.qty + 1)}
+                      aria-label={'More ' + line.name}
+                      className="grid size-6 place-items-center rounded border border-line text-ink-2 hover:bg-surface-2 disabled:opacity-40"
+                    >
+                      <Plus size={12} />
+                    </button>
                   </span>
-                  <button
-                    onClick={() => setQty(line.productId, line.qty + 1)}
-                    aria-label={'More ' + line.name}
-                    className="grid size-6 place-items-center rounded border border-line text-ink-2 hover:bg-surface-2 disabled:opacity-40"
-                  >
-                    <Plus size={12} />
-                  </button>
-                </span>
+                )}
                 <span className="tnum w-20 text-right text-[13px] font-semibold text-ink">
                   {fmt.money(line.qty * line.unitPrice)}
                 </span>

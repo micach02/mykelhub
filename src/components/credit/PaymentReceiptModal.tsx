@@ -175,7 +175,9 @@ export function PaymentReceiptModal({
                         <ul className="mt-0.5 flex flex-col gap-0.5 pl-3">
                           {row.items.map((line, i) => (
                             <li key={i} className="flex gap-1.5 text-[11.5px] text-ink-2">
-                              <span className="tnum shrink-0 text-muted">{line.qty}&times;</span>
+                              {line.cash ? null : (
+                                <span className="tnum shrink-0 text-muted">{line.qty}&times;</span>
+                              )}
                               <span className="min-w-0">{line.name}</span>
                             </li>
                           ))}

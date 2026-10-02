@@ -1,5 +1,5 @@
 import type { RowInput } from 'jspdf-autotable'
-import type { Account, AppliedTo, OutstandingCharge } from './analytics'
+import { lineLabel, type Account, type AppliedTo, type OutstandingCharge } from './analytics'
 import { amountInWords } from './words'
 import { paymentMethodLabel } from './labels'
 import type { Customer, Payment } from '../types'
@@ -217,7 +217,7 @@ export async function buildReceiptPdf(opts: ReceiptInput) {
         // line, so anything past it silently vanished from the receipt.
         doc.setFontSize(7.5).setTextColor(90)
         for (const line of row.items) {
-          const wrapped = doc.splitTextToSize(`${line.qty} x ${line.name}`, W - 8) as string[]
+          const wrapped = doc.splitTextToSize(lineLabel(line), W - 8) as string[]
           for (const part of wrapped) {
             needRoom(3.4)
             doc.text(part, left + 3, y)
@@ -371,7 +371,7 @@ async function renderStatement(
     const lines =
       row.items.length > 0
         ? row.items.map((item) => ({
-            label: `${item.qty} x ${item.name}`,
+            label: lineLabel(item),
             unit: money(item.unitPrice),
             amount: item.qty * item.unitPrice,
           }))

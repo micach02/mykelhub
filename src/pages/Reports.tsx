@@ -21,6 +21,7 @@ import {
   buildAccounts,
   categoryPerformance,
   inventoryValue,
+  goodsTotal,
   isLive,
   lowStock,
   parkingSummary,
@@ -68,9 +69,11 @@ export function Reports() {
     for (const sale of current) {
       if (!isLive(sale)) continue
       const when = new Date(sale.createdAt)
-      byWeekday[when.getDay()].value += sale.total
+      // Cash lent on a sale is not sales.
+      const goods = goodsTotal(sale)
+      byWeekday[when.getDay()].value += goods
       const slot = when.getHours() - 6
-      if (slot >= 0 && slot < byHour.length) byHour[slot].value += sale.total
+      if (slot >= 0 && slot < byHour.length) byHour[slot].value += goods
     }
 
     return {

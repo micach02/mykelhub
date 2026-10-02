@@ -57,6 +57,13 @@ export interface SaleItem {
    * stock. Its cost is its price: no profit is counted on it.
    */
   custom?: boolean
+  /**
+   * Cash the customer borrowed from the vault, carried on a credit sale so it
+   * joins what they owe. Always also `custom`, quantity one, priced at the
+   * amount lent. It is a loan, not a sale: reports leave it out of sales and
+   * profit, and the vault moves by it when it is lent, edited or voided.
+   */
+  cash?: boolean
 }
 
 /** How a sale was settled. `credit` means it went on the customer's account. */

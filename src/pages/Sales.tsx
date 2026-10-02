@@ -16,7 +16,7 @@ import { RecordSaleModal } from '../components/sales/RecordSaleModal'
 import { VaultAdjustModal } from '../components/vault/VaultAdjustModal'
 import { useStore } from '../store/useStore'
 import { useFormat } from '../lib/useFormat'
-import { totals, vaultBalance, vaultFlow } from '../lib/analytics'
+import { lineLabel, totals, vaultBalance, vaultFlow } from '../lib/analytics'
 import { addDays, downloadCsv, plural, startOfDay } from '../lib/utils'
 import { Pagination, usePagination } from '../components/ui/Pagination'
 import type { Sale, Settlement } from '../types'
@@ -105,7 +105,7 @@ export function Sales() {
       rows.map((s) => ({
         Ref: s.reference,
         Date: new Date(s.createdAt).toISOString(),
-        Items: s.items.map((i) => `${i.qty} x ${i.name}`).join('; '),
+        Items: s.items.map(lineLabel).join('; '),
         Settled: SETTLEMENT_LABEL[s.settlement],
         Customer: customers.find((c) => c.id === s.customerId)?.name ?? '',
         Amount: s.total,
@@ -239,7 +239,7 @@ export function Sales() {
                       </Td>
                       <Td className="text-ink-2">
                         <span className="line-clamp-2 max-w-xs text-[12.5px]">
-                          {sale.items.map((i) => `${i.qty} x ${i.name}`).join(', ')}
+                          {sale.items.map(lineLabel).join(', ')}
                         </span>
                         {sale.note ? (
                           <span className="block text-[11.5px] text-muted">{sale.note}</span>
