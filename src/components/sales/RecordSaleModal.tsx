@@ -76,9 +76,12 @@ export function RecordSaleModal({
   const total = goods + lent
 
   // Only a cash sale puts notes in the drawer. Maya never reaches it, and a
-  // credit sale has not been paid for yet; cash lent comes out of it.
+  // credit sale has not been paid for yet; cash lent comes out of it. So the
+  // vault is only shown when cash moves, and a top-up typed while it was
+  // showing counts for nothing once it is hidden.
   const vaultNow = vaultBalance(vault)
-  const extraToVault = Math.max(0, Number(vaultTopUp) || 0)
+  const showVault = settlement === 'cash' || lent > 0
+  const extraToVault = showVault ? Math.max(0, Number(vaultTopUp) || 0) : 0
   const fromThisSale = settlement === 'cash' ? total : 0
   const vaultAfter = vaultNow + fromThisSale + extraToVault - lent
   // There is only so much cash in the drawer to hand over.
@@ -384,7 +387,7 @@ export function RecordSaleModal({
             <Field
               label="Cash borrowed"
               error={overLent ? `Only ${fmt.money(lendable)} in the vault.` : undefined}
-              hint="Cash handed over from the vault. It goes on the account with the goods."
+              hint={`Cash handed over from the vault, which has ${fmt.money(vaultNow)}. It goes on the account with the goods.`}
             >
               {(id) => (
                 <NumberInput
@@ -410,51 +413,49 @@ export function RecordSaleModal({
           </div>
         ) : null}
 
-        <div className="rounded-2xl bg-surface shadow-(--shadow-inset-sm) px-3.5 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[12px] text-ink-2">Money in the vault</p>
-              <p className="tnum text-[17px] font-semibold text-ink">{fmt.money(vaultNow)}</p>
+        {showVault ? (
+          <div className="rounded-2xl bg-surface shadow-(--shadow-inset-sm) px-3.5 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[12px] text-ink-2">Money in the vault</p>
+                <p className="tnum text-[17px] font-semibold text-ink">{fmt.money(vaultNow)}</p>
+              </div>
+              <span className="text-muted" aria-hidden>
+                &rarr;
+              </span>
+              <div className="text-right">
+                <p className="text-[12px] text-ink-2">After this sale</p>
+                <p className="tnum text-[17px] font-semibold text-ink">{fmt.money(vaultAfter)}</p>
+              </div>
             </div>
-            <span className="text-muted" aria-hidden>
-              &rarr;
-            </span>
-            <div className="text-right">
-              <p className="text-[12px] text-ink-2">After this sale</p>
-              <p className="tnum text-[17px] font-semibold text-ink">{fmt.money(vaultAfter)}</p>
+
+            <p className="mt-2 text-[11.5px] leading-relaxed text-muted">
+              {lent > 0
+                ? `${fmt.money(lent)} in cash comes out of the vault for ${customer?.name ?? 'the customer'} to borrow.`
+                : !hasLines
+                  ? 'No items picked. Put an amount in below to add cash to the vault on its own.'
+                  : `${fmt.money(total)} in cash goes into the vault.`}
+            </p>
+
+            <div className="mt-3 border-t border-line pt-3">
+              <Field
+                label="Also put money in"
+                hint="Any extra cash going into the drawer right now, such as a change fund."
+              >
+                {(id) => (
+                  <NumberInput
+                    id={id}
+                    min={0}
+                    step="50"
+                    value={vaultTopUp}
+                    onChange={(e) => setVaultTopUp(e.target.value)}
+                    placeholder="0.00"
+                  />
+                )}
+              </Field>
             </div>
           </div>
-
-          <p className="mt-2 text-[11.5px] leading-relaxed text-muted">
-            {lent > 0
-              ? `${fmt.money(lent)} in cash comes out of the vault for ${customer?.name ?? 'the customer'} to borrow.`
-              : !hasLines
-                ? 'No items picked. Put an amount in below to add cash to the vault on its own.'
-                : settlement === 'cash'
-                  ? `${fmt.money(total)} in cash goes into the vault.`
-                  : settlement === 'maya'
-                    ? 'Maya does not reach the drawer, so the vault is unchanged.'
-                    : 'Nothing has been paid yet, so the vault is unchanged.'}
-          </p>
-
-          <div className="mt-3 border-t border-line pt-3">
-            <Field
-              label="Also put money in"
-              hint="Any extra cash going into the drawer right now, such as a change fund."
-            >
-              {(id) => (
-                <NumberInput
-                  id={id}
-                  min={0}
-                  step="50"
-                  value={vaultTopUp}
-                  onChange={(e) => setVaultTopUp(e.target.value)}
-                  placeholder="0.00"
-                />
-              )}
-            </Field>
-          </div>
-        </div>
+        ) : null}
 
         <div className="flex items-baseline justify-between border-t border-line pt-3">
           <span className="text-[14px] font-semibold text-ink">
