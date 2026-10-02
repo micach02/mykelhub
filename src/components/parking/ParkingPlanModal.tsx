@@ -5,7 +5,7 @@ import { Field, NumberInput, Select, TextInput } from '../ui/Field'
 import { toast } from '../ui/Toast'
 import { useStore } from '../../store/useStore'
 import { useFormat } from '../../lib/useFormat'
-import { dayKey } from '../../lib/utils'
+import { dayKey, ordinal } from '../../lib/utils'
 import type { Customer } from '../../types'
 
 /**
@@ -25,6 +25,7 @@ export function ParkingPlanModal({
   const fmt = useFormat()
   const customers = useStore((s) => s.customers)
   const defaultRate = useStore((s) => s.settings.defaultParkingRate)
+  const dueDay = useStore((s) => s.settings.collectionDay)
   const setParkingPlan = useStore((s) => s.setParkingPlan)
 
   const [customerId, setCustomerId] = useState('')
@@ -68,7 +69,7 @@ export function ParkingPlanModal({
       onClose={onClose}
       size="sm"
       title={editing ? 'Edit parking fee' : 'Add parking fee'}
-      description="The fee is added to what they owe at the start of every month."
+      description={`The fee is added to what they owe on the ${ordinal(dueDay)} of every month, the collection day in Settings.`}
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>

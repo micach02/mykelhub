@@ -50,13 +50,14 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   const customers = useStore((s) => s.customers)
   const sales = useStore((s) => s.sales)
   const payments = useStore((s) => s.payments)
+  const dueDay = useStore((s) => s.settings.collectionDay)
   const storeName = useStore((s) => s.settings.storeName)
   const email = useCloudSync((s) => s.email)
   const cloudState = useCloudSync((s) => s.state)
   const signOut = useCloudSync((s) => s.signOut)
   const [syncLabel, syncColor] = SYNC_STATUS[cloudState] ?? ['Signed in', 'var(--text-muted)']
 
-  const accounts = [...buildAccounts(customers, sales, payments).values()]
+  const accounts = [...buildAccounts(customers, sales, payments, { dueDay }).values()]
   const lowCount = lowStock(products).length
   const overdueCount = accounts.filter(
     (a) => a.balance > 0 && ageBucket(a.daysOutstanding) === 'overdue',

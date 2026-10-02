@@ -29,13 +29,13 @@ export interface Customer {
   /**
    * Parking is a monthly fee owed by a customer, so it lives on the customer
    * rather than in a register of its own. `null` means they do not park.
-   * The fee accrues every calendar month and, when unpaid, simply forms part
-   * of what they owe — there is one balance, not two.
+   * Each month's fee falls due on the collection day (Settings) and, when
+   * unpaid, simply forms part of what they owe — there is one balance, not two.
    */
   parkingRate: number | null
-  /** Month they started parking; charges accrue from here. */
+  /** Month they started parking; fees fall due from this month on. */
   parkingSince: string | null
-  /** Set when they stop; charges stop accruing from that month. */
+  /** Set when they stop; that month is still owed, the ones after are not. */
   parkingUntil: string | null
 }
 

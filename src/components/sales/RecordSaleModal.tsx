@@ -29,6 +29,7 @@ export function RecordSaleModal({
   const customers = useStore((s) => s.customers)
   const sales = useStore((s) => s.sales)
   const payments = useStore((s) => s.payments)
+  const dueDay = useStore((s) => s.settings.collectionDay)
   const recordSale = useStore((s) => s.recordSale)
   const adjustVault = useStore((s) => s.adjustVault)
   const vault = useStore((s) => s.vault)
@@ -53,8 +54,8 @@ export function RecordSaleModal({
   }, [open, presetSettlement, presetCustomerId])
 
   const accounts = useMemo(
-    () => buildAccounts(customers, sales, payments),
-    [customers, sales, payments],
+    () => buildAccounts(customers, sales, payments, { dueDay }),
+    [customers, sales, payments, dueDay],
   )
 
   const matches = useMemo(() => {

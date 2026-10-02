@@ -45,6 +45,7 @@ export function ProductFormModal({
   const customers = useStore((s) => s.customers)
   const sales = useStore((s) => s.sales)
   const payments = useStore((s) => s.payments)
+  const dueDay = useStore((s) => s.settings.collectionDay)
   const defaultReorderLevel = useStore((s) => s.settings.defaultReorderLevel)
   const addProduct = useStore((s) => s.addProduct)
   const updateProduct = useStore((s) => s.updateProduct)
@@ -85,9 +86,9 @@ export function ProductFormModal({
   const repricing = useMemo(
     () =>
       product && price > 0
-        ? unpaidRepricing(product.id, price, customers, sales, payments)
+        ? unpaidRepricing(product.id, price, customers, sales, payments, { dueDay })
         : null,
-    [product, price, customers, sales, payments],
+    [product, price, customers, sales, payments, dueDay],
   )
   const repriced = repricing?.saleIds.size ?? 0
 

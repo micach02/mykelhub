@@ -50,16 +50,39 @@ export interface Charge {
   sale?: Sale
 }
 
+/** The collection day when Settings does not say otherwise. */
+export const DEFAULT_COLLECTION_DAY = 15
+
+/**
+ * When the figures are worked out for, and the day of the month money is
+ * collected, which is when each month's parking fee falls due.
+ */
+export interface BillingOptions {
+  asOf?: Date
+  /** Day of the month, 1 to 28. Defaults to the 15th. */
+  dueDay?: number
+}
+
+/** A collection day that exists in every month. */
+function clampDay(day: number): number {
+  return Math.min(Math.max(1, Math.round(day)), 28)
+}
+
 /**
  * The monthly parking fees a customer has run up. Derived on read rather than
- * written down, so a new month starts owing the moment it arrives — no
+ * written down, so a month's fee is owed the moment its day comes — no
  * scheduled job, nothing to forget.
  *
- * Billing is by calendar month with no proration: someone who starts on the
- * 20th still owes for that month, which is how a space is actually let.
+ * Billing is by calendar month with no proration, and each month's fee falls
+ * due on the collection day, the 15th unless Settings says otherwise. Until
+ * then it is not owed, so nobody is behind on a month that is not yet due.
+ * Someone who starts after that day still owes for the month, from the day
+ * they started; someone who stops before it settles the month as they leave.
  */
-export function parkingCharges(customer: Customer, asOf: Date = new Date()): Charge[] {
+export function parkingCharges(customer: Customer, opts: BillingOptions = {}): Charge[] {
   if (!customer.parkingRate || customer.parkingRate <= 0 || !customer.parkingSince) return []
+  const asOf = opts.asOf ?? new Date()
+  const dueDay = clampDay(opts.dueDay ?? DEFAULT_COLLECTION_DAY)
 
   const start = new Date(customer.parkingSince)
   const stopped = customer.parkingUntil ? new Date(customer.parkingUntil) : null
@@ -71,13 +94,16 @@ export function parkingCharges(customer: Customer, asOf: Date = new Date()): Cha
   const charges: Charge[] = []
   for (let i = 0; i <= months; i++) {
     const month = new Date(start.getFullYear(), start.getMonth() + i, 1)
-    // The first month is dated from the day they started, so it sorts sensibly
-    // against any goods taken that same month.
-    const at = i === 0 ? start : month
+    // Due from the start of the collection day.
+    let due = new Date(month.getFullYear(), month.getMonth(), dueDay)
+    if (due < start) due = start
+    if (stopped && due > stopped) due = stopped
+    // This month's day has not come yet.
+    if (due > asOf) continue
     charges.push({
       id: `park_${customer.id}_${month.getFullYear()}_${month.getMonth()}`,
       kind: 'parking',
-      at: at.toISOString(),
+      at: due.toISOString(),
       amount: customer.parkingRate,
       label: `Parking for ${month.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' })}`,
     })
@@ -105,9 +131,9 @@ function goodsCharges(customerId: ID, sales: Sale[]): Charge[] {
 export function chargesFor(
   customer: Customer,
   sales: Sale[],
-  asOf: Date = new Date(),
+  opts: BillingOptions = {},
 ): Charge[] {
-  return [...goodsCharges(customer.id, sales), ...parkingCharges(customer, asOf)].sort((a, b) =>
+  return [...goodsCharges(customer.id, sales), ...parkingCharges(customer, opts)].sort((a, b) =>
     a.at.localeCompare(b.at),
   )
 }
@@ -157,7 +183,7 @@ export function buildAccounts(
   customers: Customer[],
   sales: Sale[],
   payments: Payment[],
-  asOf: Date = new Date(),
+  opts: BillingOptions = {},
 ): Map<ID, Account> {
   const paidByCustomer = new Map<ID, Payment[]>()
   for (const payment of payments) {
@@ -169,7 +195,7 @@ export function buildAccounts(
   const accounts = new Map<ID, Account>()
 
   for (const customer of customers) {
-    const charges = chargesFor(customer, sales, asOf)
+    const charges = chargesFor(customer, sales, opts)
     const paid = paidByCustomer.get(customer.id) ?? []
 
     const totalCharged = charges.reduce((sum, c) => sum + c.amount, 0)
@@ -258,9 +284,9 @@ export function outstandingCharges(
   customer: Customer,
   sales: Sale[],
   payments: Payment[],
-  asOf: Date = new Date(),
+  opts: BillingOptions = {},
 ): OutstandingCharge[] {
-  const charges = chargesFor(customer, sales, asOf)
+  const charges = chargesFor(customer, sales, opts)
   const totalPaid = payments
     .filter((p) => p.customerId === customer.id)
     .reduce((sum, p) => sum + p.amount, 0)
@@ -308,6 +334,7 @@ export function unpaidRepricing(
   customers: Customer[],
   sales: Sale[],
   payments: Payment[],
+  opts: BillingOptions = {},
 ): Repricing {
   const differs = (line: SaleItem) => line.productId === productId && line.unitPrice !== price
 
@@ -326,7 +353,7 @@ export function unpaidRepricing(
   let kept = 0
   for (const customer of customers) {
     if (!owners.has(customer.id)) continue
-    for (const row of outstandingCharges(customer, sales, payments)) {
+    for (const row of outstandingCharges(customer, sales, payments, opts)) {
       const sale = holding.get(row.id)
       if (!sale) continue
       const moving = sale.items.filter((line) => differs(line) && !line.priceSetByHand)
@@ -367,9 +394,9 @@ export function paymentAllocation(
   sales: Sale[],
   payments: Payment[],
   paymentId: ID,
-  asOf: Date = new Date(),
+  opts: BillingOptions = {},
 ): AppliedTo[] {
-  const charges = chargesFor(customer, sales, asOf)
+  const charges = chargesFor(customer, sales, opts)
   const theirs = payments
     .filter((p) => p.customerId === customer.id)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
@@ -414,7 +441,7 @@ export function paymentAllocation(
  * so the date exists in every month.
  */
 export function nextCollectionDate(day: number, from: Date = new Date()): Date {
-  const target = Math.min(Math.max(1, Math.round(day)), 28)
+  const target = clampDay(day)
   return from.getDate() <= target
     ? new Date(from.getFullYear(), from.getMonth(), target)
     : new Date(from.getFullYear(), from.getMonth() + 1, target)
@@ -439,9 +466,9 @@ export function buildLedger(
   customer: Customer,
   sales: Sale[],
   payments: Payment[],
-  asOf: Date = new Date(),
+  opts: BillingOptions = {},
 ): LedgerEntry[] {
-  const rows: Array<Omit<LedgerEntry, 'runningBalance'>> = chargesFor(customer, sales, asOf).map(
+  const rows: Array<Omit<LedgerEntry, 'runningBalance'>> = chargesFor(customer, sales, opts).map(
     (charge) => ({
       id: charge.id,
       kind: charge.kind,

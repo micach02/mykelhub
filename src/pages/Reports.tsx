@@ -45,6 +45,7 @@ export function Reports() {
   const customers = useStore((s) => s.customers)
   const sales = useStore((s) => s.sales)
   const payments = useStore((s) => s.payments)
+  const dueDay = useStore((s) => s.settings.collectionDay)
 
   const [tab, setTab] = useState<Tab>('sales')
   const [range, setRange] = useState<RangeKey>('30')
@@ -90,8 +91,8 @@ export function Reports() {
   }, [sales, payments, products, days])
 
   const accounts = useMemo(
-    () => [...buildAccounts(customers, sales, payments).values()],
-    [customers, sales, payments],
+    () => [...buildAccounts(customers, sales, payments, { dueDay }).values()],
+    [customers, sales, payments, dueDay],
   )
   const aging = useMemo(() => agingBreakdown(accounts), [accounts])
   const owing = useMemo(

@@ -33,6 +33,7 @@ export function PaymentReceiptModal({
   const fmt = useFormat()
   const sales = useStore((s) => s.sales)
   const payments = useStore((s) => s.payments)
+  const dueDay = useStore((s) => s.settings.collectionDay)
   const storeName = useStore((s) => s.settings.storeName)
   const meta = useDocumentMeta()
   const [saving, setSaving] = useState(false)
@@ -42,8 +43,10 @@ export function PaymentReceiptModal({
   // What this payment actually cleared, so the slip can itemise it.
   const settled = useMemo(
     () =>
-      customer && payment ? paymentAllocation(customer, sales, payments, payment.id) : [],
-    [customer, payment, sales, payments],
+      customer && payment
+        ? paymentAllocation(customer, sales, payments, payment.id, { dueDay })
+        : [],
+    [customer, payment, sales, payments, dueDay],
   )
 
   /** Parking months and goods, each together, so the slip reads in sections. */
@@ -65,7 +68,7 @@ export function PaymentReceiptModal({
 
   const balances = useMemo(() => {
     if (!customer || !payment) return { before: 0, after: 0 }
-    const entry = buildLedger(customer, sales, payments).find((e) => e.id === payment.id)
+    const entry = buildLedger(customer, sales, payments, { dueDay }).find((e) => e.id === payment.id)
     const after = Math.max(0, entry?.runningBalance ?? 0)
     return { before: after + payment.amount, after }
   }, [customer, payment, sales, payments])

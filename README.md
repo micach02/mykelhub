@@ -68,7 +68,8 @@ changes on the Parking page rather than one month at a time. A voided sale
 cannot be edited — its stock has already gone back.
 
 **Parking** — a monthly fee charged to a customer. Set their rate and the month
-they started, and the fee **accrues by itself every calendar month**. Unpaid
+they started, and each month's fee **falls due by itself on the collection
+day**, the 15th unless Settings says otherwise. Unpaid
 months are not a separate debt: they join what that customer owes on the Credit
 page, because it is the same person and the same pocket. The table shows the
 monthly fee, what month each is paid through, how many months they are behind,
@@ -120,18 +121,23 @@ single payment stream, because that is how it works across the counter.
 balance = total charged − total paid
 ```
 
-**Parking accrues; it is never billed.** A monthly fee is charged by whole
-calendar month from the month the customer started:
+**Parking falls due; it is never billed.** A monthly fee is charged by whole
+calendar month from the month the customer started, and each month's fee
+falls due on the collection day (Settings → *Collect payments on or before*,
+the 15th by default):
 
 ```
 months billed = calendar months from parkingSince to min(now, parkingUntil)
+                whose collection day has arrived
 ```
 
-Counting by calendar month rather than by the day is deliberate: somebody who
-takes a space on the 20th still owes for that month, which is how a space is
-actually let. There is no proration, and no charge is ever written down — the
-months are derived on read, so a new month starts owing the moment it arrives,
-with no scheduled job and nothing to forget.
+So on the 2nd of October nobody is behind for October yet; from the 15th they
+are. Counting by calendar month rather than by the day is deliberate: somebody
+who takes a space on the 20th still owes for that month, due the day they
+start, which is how a space is actually let. Someone who stops before the
+15th settles that month as they leave. There is no proration, and no charge
+is ever written down — the months are derived on read, so a fee is owed the
+moment its day comes, with no scheduled job and nothing to forget.
 
 **Payments clear the oldest thing owed first**, whatever it was for. Goods and
 parking charges are merged into one chronological list and payments are walked

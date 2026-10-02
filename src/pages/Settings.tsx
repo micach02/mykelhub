@@ -194,7 +194,7 @@ export function Settings() {
             </Field>
             <Field
               label="Collect payments on or before"
-              hint="Day of the month. Shown on statements and receipts as the due date."
+              hint="Day of the month. Each month's parking fee falls due on it, and statements and receipts show it as the due date."
             >
               {(id) => (
                 <NumberInput

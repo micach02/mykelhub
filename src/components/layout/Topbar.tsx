@@ -33,6 +33,7 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
   const customers = useStore((s) => s.customers)
   const sales = useStore((s) => s.sales)
   const payments = useStore((s) => s.payments)
+  const dueDay = useStore((s) => s.settings.collectionDay)
   const theme = useStore((s) => s.settings.theme)
   const updateSettings = useStore((s) => s.updateSettings)
 
@@ -42,8 +43,8 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
   const alertsRef = useRef<HTMLDivElement>(null)
 
   const accounts = useMemo(
-    () => buildAccounts(customers, sales, payments),
-    [customers, sales, payments],
+    () => buildAccounts(customers, sales, payments, { dueDay }),
+    [customers, sales, payments, dueDay],
   )
 
   const overdue = useMemo(

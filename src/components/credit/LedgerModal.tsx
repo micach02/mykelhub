@@ -39,6 +39,7 @@ export function LedgerModal({
   const fmt = useFormat()
   const sales = useStore((s) => s.sales)
   const payments = useStore((s) => s.payments)
+  const dueDay = useStore((s) => s.settings.collectionDay)
   const deletePayment = useStore((s) => s.deletePayment)
   const meta = useDocumentMeta()
   const [pendingDelete, setPendingDelete] = useState<string | null>(null)
@@ -48,15 +49,15 @@ export function LedgerModal({
   const [saving, setSaving] = useState(false)
 
   const entries = useMemo(
-    () => (customer ? buildLedger(customer, sales, payments) : []),
-    [customer, sales, payments],
+    () => (customer ? buildLedger(customer, sales, payments, { dueDay }) : []),
+    [customer, sales, payments, dueDay],
   )
 
   // The statement asks for payment, so it lists only what is still owed —
   // unlike the ledger on screen, which is the whole history.
   const unpaid = useMemo(
-    () => (customer ? outstandingCharges(customer, sales, payments) : []),
-    [customer, sales, payments],
+    () => (customer ? outstandingCharges(customer, sales, payments, { dueDay }) : []),
+    [customer, sales, payments, dueDay],
   )
 
   // Newest first, ten at a time, so a long history does not turn the dialog
@@ -206,7 +207,10 @@ export function LedgerModal({
                 <tbody>
                   {pager.visible.map((entry) => (
                     <Tr key={entry.id}>
-                      <Td className="whitespace-nowrap text-ink-2">{fmt.dateTime(entry.at)}</Td>
+                      <Td className="whitespace-nowrap text-ink-2">
+                        {/* A month's parking falls due on a day, not at a time. */}
+                        {entry.kind === 'parking' ? fmt.date(entry.at) : fmt.dateTime(entry.at)}
+                      </Td>
                       <Td>
                         <span className="flex items-start gap-1.5">
                           {entry.kind === 'parking' ? (

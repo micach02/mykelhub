@@ -18,7 +18,7 @@ import { PaymentReceiptModal } from '../components/credit/PaymentReceiptModal'
 import { useStore } from '../store/useStore'
 import { useFormat } from '../lib/useFormat'
 import { buildAccounts, parkingSummary, paymentsBetween, type Account } from '../lib/analytics'
-import { downloadCsv, plural, startOfDay } from '../lib/utils'
+import { downloadCsv, ordinal, plural, startOfDay } from '../lib/utils'
 import { paymentMethodLabel } from '../lib/labels'
 import type { Customer, Payment } from '../types'
 
@@ -29,6 +29,7 @@ export function Parking() {
   const customers = useStore((s) => s.customers)
   const sales = useStore((s) => s.sales)
   const payments = useStore((s) => s.payments)
+  const dueDay = useStore((s) => s.settings.collectionDay)
   const stopParking = useStore((s) => s.stopParking)
   const resumeParking = useStore((s) => s.resumeParking)
   const clearParkingPlan = useStore((s) => s.clearParkingPlan)
@@ -42,8 +43,8 @@ export function Parking() {
   const [pendingClear, setPendingClear] = useState<Customer | null>(null)
 
   const accounts = useMemo(
-    () => buildAccounts(customers, sales, payments),
-    [customers, sales, payments],
+    () => buildAccounts(customers, sales, payments, { dueDay }),
+    [customers, sales, payments, dueDay],
   )
 
   const parkers = useMemo(
@@ -126,7 +127,7 @@ export function Parking() {
       <>
         <PageHeader
           title="Parking"
-          subtitle="A monthly fee charged to a customer. Unpaid months join what they owe you."
+          subtitle={`A monthly fee, due on the ${ordinal(dueDay)} of each month. Unpaid months join what they owe you.`}
           actions={
             <Button variant="primary" onClick={() => setPlanFor('any')}>
               <Plus size={16} aria-hidden />
@@ -162,7 +163,7 @@ export function Parking() {
     <>
       <PageHeader
         title="Parking"
-        subtitle="A monthly fee charged to a customer. Unpaid months join what they owe you."
+        subtitle={`A monthly fee, due on the ${ordinal(dueDay)} of each month. Unpaid months join what they owe you.`}
         actions={
           <>
             <Button onClick={exportCsv} disabled={rows.length === 0}>

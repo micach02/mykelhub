@@ -182,7 +182,9 @@ export const useStore = create<StoreState>()(
           // Credit still owed moves to the new price. Charges already paid off,
           // prices set by hand on a charge, and every cash and Maya sale keep
           // what they were sold at.
-          const { saleIds } = unpaidRepricing(id, price, s.customers, s.sales, s.payments)
+          const { saleIds } = unpaidRepricing(id, price, s.customers, s.sales, s.payments, {
+            dueDay: s.settings.collectionDay,
+          })
           if (saleIds.size === 0) return { products }
           return {
             products,

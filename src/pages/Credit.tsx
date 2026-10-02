@@ -45,6 +45,7 @@ export function Credit() {
   const customers = useStore((s) => s.customers)
   const sales = useStore((s) => s.sales)
   const payments = useStore((s) => s.payments)
+  const dueDay = useStore((s) => s.settings.collectionDay)
   const deleteCustomer = useStore((s) => s.deleteCustomer)
 
   const [query, setQuery] = useState('')
@@ -63,8 +64,8 @@ export function Credit() {
   const meta = useDocumentMeta()
 
   const accounts = useMemo(
-    () => buildAccounts(customers, sales, payments),
-    [customers, sales, payments],
+    () => buildAccounts(customers, sales, payments, { dueDay }),
+    [customers, sales, payments, dueDay],
   )
   const allAccounts = useMemo(() => [...accounts.values()], [accounts])
 
@@ -138,7 +139,7 @@ export function Credit() {
         owing.map(({ customer, account }) => ({
           customer,
           account,
-          outstanding: outstandingCharges(customer, sales, payments),
+          outstanding: outstandingCharges(customer, sales, payments, { dueDay }),
           meta,
         })),
       )

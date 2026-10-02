@@ -84,6 +84,7 @@ export function Dashboard() {
   const customers = useStore((s) => s.customers)
   const sales = useStore((s) => s.sales)
   const payments = useStore((s) => s.payments)
+  const dueDay = useStore((s) => s.settings.collectionDay)
   const vault = useStore((s) => s.vault)
   const storeName = useStore((s) => s.settings.storeName)
   const loadDemoData = useStore((s) => s.loadDemoData)
@@ -93,8 +94,8 @@ export function Dashboard() {
   const days = Number(range)
 
   const accounts = useMemo(
-    () => buildAccounts(customers, sales, payments),
-    [customers, sales, payments],
+    () => buildAccounts(customers, sales, payments, { dueDay }),
+    [customers, sales, payments, dueDay],
   )
 
   const view = useMemo(() => {
